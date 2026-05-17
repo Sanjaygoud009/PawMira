@@ -31,7 +31,7 @@ function Hero() {
   return (
     <section className="relative min-h-[90vh] flex items-center overflow-hidden bg-dark">
       {/* Background Image */}
-      <div 
+      <div
         className="absolute inset-0 z-0"
         style={{
           backgroundImage: "url('/background_image.png')",
@@ -39,7 +39,7 @@ function Hero() {
           backgroundPosition: 'center'
         }}
       />
-      
+
       {/* Gradient Overlays for readability and matching screenshot */}
       <div className="absolute inset-0 z-0 bg-gradient-to-r from-dark/95 via-dark/80 to-transparent" />
       <div className="absolute inset-0 z-0 bg-gradient-to-b from-dark/60 via-transparent to-dark" />
@@ -125,9 +125,9 @@ function Hero() {
 
 function Stats() {
   const stats = [
-    { icon: Heart, value: '1,200+', label: 'Dogs Rescued', color: 'text-success' },
-    { icon: Users, value: '500+', label: 'Volunteers', color: 'text-primary' },
-    { icon: Building2, value: '15+', label: 'Partner NGOs', color: 'text-blue-400' },
+    { icon: Heart, value: '3', label: 'Dogs Rescued', color: 'text-success' },
+    { icon: Users, value: '2+', label: 'Volunteers', color: 'text-primary' },
+    { icon: Building2, value: '0', label: 'Partner NGOs', color: 'text-blue-400' },
     { icon: Clock, value: '<30s', label: 'Report Time', color: 'text-amber-400' },
   ];
 
