@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, AlertTriangle } from 'lucide-react';
+import { Menu, X, AlertTriangle, Heart } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -25,6 +25,7 @@ export default function Navbar() {
     { to: '/about', label: 'About' },
     { to: '/services', label: 'Services' },
     { to: '/adoption', label: 'Adoption' },
+    { to: '/lost-found', label: 'Lost & Found' },
     { to: '/gallery', label: 'Gallery' },
     { to: '/volunteer', label: 'Volunteer' },
     { to: '/contact', label: 'Contact' },

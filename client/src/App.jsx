@@ -18,6 +18,7 @@ const Adoption = lazy(() => import('./pages/Adoption'));
 const Volunteer = lazy(() => import('./pages/Volunteer'));
 const Contact = lazy(() => import('./pages/Contact'));
 const Gallery = lazy(() => import('./pages/Gallery'));
+const LostFound = lazy(() => import('./pages/LostFound'));
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -41,6 +42,7 @@ function AppRoutes() {
           <Route path="/volunteer" element={<Volunteer />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/gallery" element={<Gallery />} />
+          <Route path="/lost-found" element={<LostFound />} />
           <Route
             path="/dashboard"
             element={

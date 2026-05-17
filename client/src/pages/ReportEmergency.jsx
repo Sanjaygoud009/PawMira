@@ -122,7 +122,7 @@ export default function ReportEmergency() {
             </div>
             <div>
               <h1 className="text-2xl sm:text-3xl font-black text-dark">Report Emergency</h1>
-              <p className="text-sm text-text-light mt-0.5">Submit in under 30 seconds • No login needed</p>
+              <p className="text-sm text-text-light mt-0.5">Can Submit under 30 seconds • No login needed</p>
             </div>
           </motion.div>
         </div>
@@ -149,11 +149,10 @@ export default function ReportEmergency() {
                     setForm((f) => ({ ...f, issue_type: type.value }));
                     setErrors((e) => ({ ...e, issue_type: undefined }));
                   }}
-                  className={`flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all duration-200 ${
-                    form.issue_type === type.value
+                  className={`flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all duration-200 ${form.issue_type === type.value
                       ? 'border-primary bg-primary/5 shadow-sm'
                       : 'border-neutral hover:border-primary/30'
-                  }`}
+                    }`}
                 >
                   <span className="text-xl">{type.label.split(' ')[0]}</span>
                   <div>
@@ -226,9 +225,8 @@ export default function ReportEmergency() {
                   setErrors((er) => ({ ...er, reporter_phone: undefined }));
                 }}
                 disabled={submitting}
-                className={`w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 text-sm font-medium bg-white transition-colors focus:outline-none focus:border-primary ${
-                  errors.reporter_phone ? 'border-warning' : 'border-neutral'
-                }`}
+                className={`w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 text-sm font-medium bg-white transition-colors focus:outline-none focus:border-primary ${errors.reporter_phone ? 'border-warning' : 'border-neutral'
+                  }`}
               />
             </div>
             {errors.reporter_phone && (
