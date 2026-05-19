@@ -22,6 +22,7 @@ export default function Navbar() {
 
   const navLinks = [
     { to: '/', label: 'Home' },
+    { to: '/feed', label: 'Live Feed' },
     { to: '/about', label: 'About' },
     { to: '/services', label: 'Services' },
     { to: '/adoption', label: 'Adoption' },

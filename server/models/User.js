@@ -24,6 +24,16 @@ const userSchema = new mongoose.Schema({
     enum: ['volunteer', 'ngo', 'admin'],
     default: 'volunteer',
   },
+  isVerified: {
+    type: Boolean,
+    default: false,
+  },
+  otp: {
+    type: String,
+  },
+  otpExpires: {
+    type: Date,
+  },
   created_at: {
     type: Date,
     default: Date.now,

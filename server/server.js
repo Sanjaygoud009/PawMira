@@ -70,7 +70,34 @@ const PORT = process.env.PORT || 5000;
 connectDB().then(() => {
   app.listen(PORT, () => {
     console.log(`[SERVER_STARTED] PawMira API running on port ${PORT}`);
+
+    // Background job: Inactivity Timeout (runs every minute)
+    setInterval(async () => {
+      try {
+        const Report = require('./models/Report');
+        const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000);
+        
+        const result = await Report.updateMany(
+          { 
+            status: 'in_progress', 
+            last_activity_at: { $lt: fifteenMinsAgo },
+            is_deleted: false 
+          },
+          { 
+            $set: { status: 'inactive' },
+            $unset: { primary_responder: "" },
+            $push: { 
+              history: { status: 'inactive', updated_at: new Date() }
+            }
+          }
+        );
+        
+        if (result.modifiedCount > 0) {
+          console.log(`[INACTIVITY_TIMEOUT] Marked ${result.modifiedCount} reports as inactive.`);
+        }
+      } catch (error) {
+        console.error(`[BACKGROUND_JOB_ERROR] ${error.message}`);
+      }
+    }, 60000);
   });
 });
- 
- 

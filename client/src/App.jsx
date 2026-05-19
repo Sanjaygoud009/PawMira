@@ -8,6 +8,7 @@ import { PageLoader } from './components/ui/LoadingSpinner';
 
 // Lazy-loaded pages for code splitting
 const Home = lazy(() => import('./pages/Home'));
+const RescueFeed = lazy(() => import('./pages/RescueFeed'));
 const ReportEmergency = lazy(() => import('./pages/ReportEmergency'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Login = lazy(() => import('./pages/Login'));
@@ -33,6 +34,7 @@ function AppRoutes() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/feed" element={<RescueFeed />} />
           <Route path="/report" element={<ReportEmergency />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

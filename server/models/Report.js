@@ -35,23 +35,74 @@ const reportSchema = new mongoose.Schema({
   },
   issue_type: {
     type: String,
-    enum: ['injured', 'starving', 'abandoned', 'stuck', 'other'],
+    enum: ['severe_injury', 'injured', 'starving', 'abandoned', 'stuck', 'other'],
     required: [true, 'Issue type is required'],
   },
-  // Auto-calculated priority
+  // Auto-calculated priority (Severity)
   priority: {
     type: String,
-    enum: ['low', 'medium', 'high'],
+    enum: ['low', 'medium', 'high', 'critical'],
     default: 'medium',
   },
   status: {
     type: String,
-    enum: ['pending', 'in_progress', 'rescued'],
-    default: 'pending',
+    enum: ['open', 'in_progress', 'under_treatment', 'safe', 'inactive'],
+    default: 'open',
   },
-  assigned_to: {
+  primary_responder: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
+  },
+  backup_responders: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    }
+  ],
+  monitors: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    }
+  ],
+  updates: [
+    {
+      update_type: {
+        type: String,
+        enum: ['rescue', 'treatment', 'safe', 'general'],
+        default: 'general'
+      },
+      image_url: String,
+      text: String,
+      user_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      created_at: {
+        type: Date,
+        default: Date.now
+      }
+    }
+  ],
+  community_flags: [
+    {
+      flag_type: {
+        type: String,
+        enum: ['still_needs_help', 'completed']
+      },
+      user_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      },
+      created_at: {
+        type: Date,
+        default: Date.now
+      }
+    }
+  ],
+  last_activity_at: {
+    type: Date,
+    default: Date.now
   },
   source: {
     type: String,
@@ -94,10 +145,11 @@ reportSchema.index({ created_at: -1 });
 
 // Priority auto-assignment based on issue type
 const PRIORITY_MAP = {
+  severe_injury: 'critical',
   injured: 'high',
   stuck: 'high',
   starving: 'medium',
-  abandoned: 'medium',
+  abandoned: 'low',
   other: 'low',
 };
 

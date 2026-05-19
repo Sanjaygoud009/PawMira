@@ -25,16 +25,21 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
     localStorage.setItem('pawmira_token', data.token);
-    localStorage.setItem('pawmira_user', JSON.stringify(data.user));
-    setUser(data.user);
+    localStorage.setItem('pawmira_user', JSON.stringify(data));
+    setUser(data);
     return data;
   }, []);
 
   const register = useCallback(async (name, email, password, role) => {
     const { data } = await api.post('/auth/register', { name, email, password, role });
+    return data;
+  }, []);
+
+  const verifyOtp = useCallback(async (email, otp) => {
+    const { data } = await api.post('/auth/verify-otp', { email, otp });
     localStorage.setItem('pawmira_token', data.token);
-    localStorage.setItem('pawmira_user', JSON.stringify(data.user));
-    setUser(data.user);
+    localStorage.setItem('pawmira_user', JSON.stringify(data));
+    setUser(data);
     return data;
   }, []);
 
@@ -45,7 +50,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, verifyOtp, logout }}>
       {children}
     </AuthContext.Provider>
   );
