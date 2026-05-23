@@ -11,6 +11,7 @@ const reportRoutes = require('./routes/reports');
 const whatsappRoutes = require('./routes/whatsapp');
 const lostFoundRoutes = require('./routes/lostFound');
 const contactRoutes = require('./routes/contact');
+const chatRoutes = require('./routes/chat');
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/lost-found', lostFoundRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

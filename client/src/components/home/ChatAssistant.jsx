@@ -28,6 +28,16 @@ const quickPrompts = [
 
 const responseRules = [
   {
+    patterns: ['bleed', 'bleeding', 'blood', 'wound', 'cut'],
+    response:
+      'If the bleeding is heavy, apply clean cloth or gauze with firm direct pressure for 10 minutes, keep the dog calm and still, and go to an emergency vet immediately. If it is a small wound, clean the area gently with saline or clean water and contact a vet if the bleeding does not stop quickly.',
+  },
+  {
+    patterns: ['rescue feed', 'feed work', 'live rescue feed'],
+    response:
+      'The Live Rescue Feed shows real-time emergency reports near you. It can switch between list and map views, uses your location when available, and prioritizes reports by severity so nearby rescues are easier to find and follow.',
+  },
+  {
     patterns: ['report', 'injured', 'emergency'],
     response:
       'Use the Report Emergency page to submit a photo, location, and short description.',
@@ -64,7 +74,7 @@ function buildAnswer(question) {
     return matchedRule.response;
   }
 
-  return 'I can help with PawMira features, animal safety guidance, adoption, rescue reporting, and volunteering.';
+  return 'I could not reach OpenAI right now. Please try again in a moment.';
 }
 
 export default function ChatAssistant({ compact = false, floating = false }) {
@@ -95,24 +105,31 @@ export default function ChatAssistant({ compact = false, floating = false }) {
 
   function sendMessage(question) {
     const trimmed = question.trim();
-
     if (!trimmed) return;
 
-    const userMessage = {
-      id: Date.now(),
-      role: 'user',
-      text: trimmed,
-    };
-
-    const botMessage = {
-      id: Date.now() + 1,
-      role: 'bot',
-      text: buildAnswer(trimmed),
-    };
-
-    setMessages((current) => [...current, userMessage, botMessage]);
-
+    const userMessage = { id: Date.now(), role: 'user', text: trimmed };
+    setMessages((current) => [...current, userMessage]);
     setInputValue('');
+
+    // Try server-backed AI first
+    (async () => {
+      try {
+        const resp = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: trimmed }),
+        });
+
+        if (!resp.ok) throw new Error('AI service error');
+        const data = await resp.json();
+        const botMessage = { id: Date.now() + 1, role: 'bot', text: data.answer };
+        setMessages((current) => [...current, botMessage]);
+      } catch (err) {
+        // fallback to local rules
+        const botMessage = { id: Date.now() + 1, role: 'bot', text: buildAnswer(trimmed) };
+        setMessages((current) => [...current, botMessage]);
+      }
+    })();
   }
 
   function handleSubmit(event) {
