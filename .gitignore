@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+.pnp
+.pnp.js
+
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build Outputs
+client/dist/
+server/dist/
+client/build/
+build/
+dist/
+
+# Logs
+logs
+*.log
+
+# Editor & OS files
+.DS_Store
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Next.js / Vite / other framework specifics
+.vercel/
+.next/
+out/
+.nuxt/
+.vuepress/dist/
+.serverless/
+.cache/
+.vite/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Temporary files
+*.pid
+*.seed
+*.pid.lock
