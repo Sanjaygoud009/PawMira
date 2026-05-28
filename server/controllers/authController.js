@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 // Create transporter using Gmail
 const createTransporter = () => {
@@ -164,4 +165,101 @@ exports.login = async (req, res) => {
 // @route   GET /api/auth/me
 exports.getMe = async (req, res) => {
   res.json(req.user);
+};
+
+// @desc    Forgot Password (generate token & send email)
+// @route   POST /api/auth/forgot-password
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Please provide your email address' });
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      // Return 200 even if user not found to prevent email enumeration
+      return res.status(200).json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+    }
+
+    // Generate token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    
+    // Hash token to save in DB for security
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+    await user.save({ validateBeforeSave: false });
+
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
+
+    const transporter = createTransporter();
+    await transporter.sendMail({
+      from: `"PawMira" <${process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject: `🐾 Password Reset Request`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #FF6B35; text-align: center;">PawMira Password Reset</h2>
+          <p>Hi ${user.name},</p>
+          <p>You requested a password reset for your PawMira account. Please click the button below to choose a new password:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetUrl}" style="background-color: #FF6B35; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Reset Password</a>
+          </div>
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="word-break: break-all; color: #555;"><a href="${resetUrl}">${resetUrl}</a></p>
+          <p>This link will expire in 1 hour.</p>
+          <p>If you didn't request a password reset, please ignore this email or contact support if you have concerns.</p>
+          <p>Best,<br/>The PawMira Team</p>
+        </div>
+      `,
+    });
+
+    res.status(200).json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+  } catch (error) {
+    console.error(`[AUTH_ERROR] forgotPassword: ${error.message}`);
+    // If saving fails, clear fields
+    if (req.body.email) {
+      try {
+        const user = await User.findOne({ email: req.body.email });
+        if (user) {
+          user.resetPasswordToken = undefined;
+          user.resetPasswordExpires = undefined;
+          await user.save({ validateBeforeSave: false });
+        }
+      } catch (err) {}
+    }
+    res.status(500).json({ message: 'Error sending email. Please try again later.' });
+  }
+};
+
+// @desc    Reset Password (verify token & set new password)
+// @route   PUT /api/auth/reset-password/:token
+exports.resetPassword = async (req, res) => {
+  try {
+    const { password } = req.body;
+    
+    // Hash token from URL to compare with DB
+    const hashedToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Password reset token is invalid or has expired' });
+    }
+
+    // Update password and clear token fields
+    user.password = password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.status(200).json({ message: 'Password has been reset successfully. You can now login.' });
+  } catch (error) {
+    console.error(`[AUTH_ERROR] resetPassword: ${error.message}`);
+    res.status(500).json({ message: 'Server error during password reset' });
+  }
 };
