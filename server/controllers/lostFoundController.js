@@ -118,3 +118,43 @@ exports.getFoundPets = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch found pet reports.' });
   }
 };
+
+// @desc    Mark a lost pet as reunited with photo
+// @route   POST /api/lost-found/lost-pets/:id/reunite
+exports.reuniteLostPet = async (req, res) => {
+  try {
+    const pet = await LostPet.findById(req.params.id);
+    if (!pet) return res.status(404).json({ message: 'Lost pet not found' });
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'Reunion photo is required.' });
+    }
+
+    pet.status = 'reunited';
+    pet.is_archived = true;
+    pet.reunited_image_url = req.file.path;
+    
+    await pet.save();
+    res.json(pet);
+  } catch (error) {
+    console.error(`[LOST_PET_ERROR] reunite: ${error.message}`);
+    res.status(500).json({ message: 'Failed to reunite lost pet.' });
+  }
+};
+
+// @desc    Get all achievements (archived successful rescues & reunions)
+// @route   GET /api/lost-found/achievements
+exports.getAchievements = async (req, res) => {
+  try {
+    const achievements = await LostPet.find({ 
+      status: 'reunited', 
+      is_archived: true,
+      reunited_image_url: { $exists: true, $ne: null }
+    }).sort({ created_at: -1 }).lean();
+
+    res.json(achievements);
+  } catch (error) {
+    console.error(`[ACHIEVEMENTS_ERROR] fetch: ${error.message}`);
+    res.status(500).json({ message: 'Failed to fetch achievements.' });
+  }
+};

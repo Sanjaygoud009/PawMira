@@ -123,6 +123,24 @@ const reportSchema = new mongoose.Schema({
       },
     },
   ],
+  confidence_level: {
+    type: String,
+    enum: ['unverified', 'community_verified', 'ngo_verified'],
+    default: 'unverified',
+  },
+  resolved_by_name: {
+    type: String,
+  },
+  resolved_by_role: {
+    type: String, // e.g., 'Volunteer', 'NGO', 'Community Member'
+  },
+  resolution_image_url: {
+    type: String,
+  },
+  is_archived: {
+    type: Boolean,
+    default: false,
+  },
   // Soft delete
   is_deleted: {
     type: Boolean,
@@ -130,6 +148,14 @@ const reportSchema = new mongoose.Schema({
   },
   deleted_at: {
     type: Date,
+  },
+  moderated_by: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  moderation_reason: {
+    type: String,
+    enum: ['spam', 'fake rescue', 'abuse', 'dangerous content', 'duplicate'],
   },
   created_at: {
     type: Date,
@@ -139,25 +165,8 @@ const reportSchema = new mongoose.Schema({
 
 // Indexes
 reportSchema.index({ location: '2dsphere' });
-reportSchema.index({ status: 1, is_deleted: 1 });
+reportSchema.index({ status: 1, is_deleted: 1, is_archived: 1 });
 reportSchema.index({ priority: 1 });
 reportSchema.index({ created_at: -1 });
-
-// Priority auto-assignment based on issue type
-const PRIORITY_MAP = {
-  severe_injury: 'critical',
-  injured: 'high',
-  stuck: 'high',
-  starving: 'medium',
-  abandoned: 'low',
-  other: 'low',
-};
-
-reportSchema.pre('save', function (next) {
-  if (this.isNew || this.isModified('issue_type')) {
-    this.priority = PRIORITY_MAP[this.issue_type] || 'medium';
-  }
-  next();
-});
 
 module.exports = mongoose.model('Report', reportSchema);

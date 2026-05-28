@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -10,6 +10,8 @@ import {
   Send,
   CheckCircle,
   Loader2,
+  Mic,
+  MicOff,
 } from 'lucide-react';
 import ImageUpload from '../components/report/ImageUpload';
 import LocationPicker from '../components/report/LocationPicker';
@@ -23,6 +25,13 @@ const issueTypes = [
   { value: 'other', label: '📋 Other', desc: 'Something else' },
 ];
 
+const emergencyLevels = [
+  { value: 'critical', label: 'Critical', desc: 'Life at risk', color: 'bg-red-500', border: 'border-red-500', text: 'text-red-600', tint: 'bg-red-50' },
+  { value: 'high', label: 'High', desc: 'Needs quick help', color: 'bg-orange-500', border: 'border-orange-500', text: 'text-orange-600', tint: 'bg-orange-50' },
+  { value: 'medium', label: 'Medium', desc: 'Distress visible', color: 'bg-yellow-500', border: 'border-yellow-500', text: 'text-yellow-700', tint: 'bg-yellow-50' },
+  { value: 'low', label: 'Low', desc: 'Monitor or guide', color: 'bg-blue-500', border: 'border-blue-500', text: 'text-blue-600', tint: 'bg-blue-50' },
+];
+
 export default function ReportEmergency() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
@@ -32,6 +41,7 @@ export default function ReportEmergency() {
     reporter_name: '',
     reporter_phone: '',
     issue_type: '',
+    priority: '',
     description: '',
     image: null,
     location: null,
@@ -39,12 +49,91 @@ export default function ReportEmergency() {
 
   const [errors, setErrors] = useState({});
 
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef(null);
+  const originalDescRef = useRef('');
+
+  const toggleListening = useCallback(() => {
+    if (isListening) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error('Voice input is not supported in this browser.');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    
+    // Capture whatever is in the text area BEFORE we start talking
+    // We use a functional state update to get the absolute latest state
+    setForm(currentForm => {
+      originalDescRef.current = currentForm.description;
+      return currentForm;
+    });
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      toast.success('Listening... Speak now.');
+    };
+    
+    recognition.onresult = (event) => {
+      let finalTranscript = '';
+      let interimTranscript = '';
+      
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        } else {
+          interimTranscript += event.results[i][0].transcript;
+        }
+      }
+      
+      // If we got a final transcript piece, append it to the original for good
+      if (finalTranscript) {
+        originalDescRef.current = (originalDescRef.current + ' ' + finalTranscript).trim();
+      }
+      
+      // Update the form with the locked-in final text + the currently guessing interim text
+      setForm(f => ({ 
+        ...f, 
+        description: (originalDescRef.current + ' ' + interimTranscript).trim() 
+      }));
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error', event.error);
+      if (event.error !== 'aborted') {
+        toast.error('Voice input error: ' + event.error);
+      }
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    try {
+      recognition.start();
+    } catch (e) {
+      console.error(e);
+      setIsListening(false);
+    }
+  }, [isListening]);
+
   const validate = useCallback(() => {
     const errs = {};
     if (!form.reporter_phone.trim()) errs.reporter_phone = 'Phone number is required';
     else if (!/^[+]?\d{10,15}$/.test(form.reporter_phone.replace(/\s/g, '')))
       errs.reporter_phone = 'Enter a valid phone number';
     if (!form.issue_type) errs.issue_type = 'Select an issue type';
+    if (!form.priority) errs.priority = 'Select an emergency level';
     if (!form.location) errs.location = 'Location is required';
     return errs;
   }, [form]);
@@ -65,6 +154,7 @@ export default function ReportEmergency() {
       formData.append('reporter_name', form.reporter_name);
       formData.append('reporter_phone', form.reporter_phone);
       formData.append('issue_type', form.issue_type);
+      formData.append('priority', form.priority);
       formData.append('description', form.description);
       formData.append('latitude', form.location.latitude);
       formData.append('longitude', form.location.longitude);
@@ -122,7 +212,7 @@ export default function ReportEmergency() {
             </div>
             <div>
               <h1 className="text-2xl sm:text-3xl font-black text-dark">Report Emergency</h1>
-              <p className="text-sm text-text-light mt-0.5">Can Submit under 30 seconds • No login needed</p>
+              <p className="text-sm text-text-light mt-0.5">Submit in under 30 seconds. No login needed.</p>
             </div>
           </motion.div>
         </div>
@@ -149,6 +239,7 @@ export default function ReportEmergency() {
                     setForm((f) => ({ ...f, issue_type: type.value }));
                     setErrors((e) => ({ ...e, issue_type: undefined }));
                   }}
+                  aria-pressed={form.issue_type === type.value}
                   className={`flex items-start gap-3 p-4 rounded-2xl border-2 text-left transition-all duration-200 ${form.issue_type === type.value
                       ? 'border-primary bg-primary/5 shadow-sm'
                       : 'border-neutral hover:border-primary/30'
@@ -166,6 +257,42 @@ export default function ReportEmergency() {
             </div>
             {errors.issue_type && (
               <p className="text-xs text-warning mt-2">{errors.issue_type}</p>
+            )}
+          </motion.div>
+
+          {/* Emergency Level */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <label className="block text-sm font-semibold text-dark mb-3">
+              Emergency Level <span className="text-warning">*</span>
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {emergencyLevels.map((level) => (
+                <button
+                  key={level.value}
+                  type="button"
+                  onClick={() => {
+                    setForm((f) => ({ ...f, priority: level.value }));
+                    setErrors((e) => ({ ...e, priority: undefined }));
+                  }}
+                  aria-pressed={form.priority === level.value}
+                  className={`flex min-h-[86px] flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all duration-200 ${
+                    form.priority === level.value
+                      ? `${level.border} ${level.text} ${level.tint} shadow-sm`
+                      : 'border-neutral hover:border-primary/30 text-text-light'
+                  }`}
+                >
+                  <span className={`mb-2 h-2 w-8 rounded-full ${level.color}`} />
+                  <span className="text-sm font-bold">{level.label}</span>
+                  <span className="mt-0.5 text-[11px] font-medium opacity-70">{level.desc}</span>
+                </button>
+              ))}
+            </div>
+            {errors.priority && (
+              <p className="text-xs text-warning mt-2">{errors.priority}</p>
             )}
           </motion.div>
 
@@ -262,9 +389,26 @@ export default function ReportEmergency() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
           >
-            <label className="block text-sm font-semibold text-dark mb-2">
-              Description <span className="text-text-light font-normal">(optional)</span>
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-semibold text-dark">
+                Description <span className="text-text-light font-normal">(optional)</span>
+              </label>
+              <button
+                type="button"
+                onClick={toggleListening}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                  isListening 
+                    ? 'bg-red-100 text-red-600 animate-pulse' 
+                    : 'bg-primary/10 text-primary hover:bg-primary/20'
+                }`}
+              >
+                {isListening ? (
+                  <><MicOff size={14} /> Stop Listening</>
+                ) : (
+                  <><Mic size={14} /> Voice Type</>
+                )}
+              </button>
+            </div>
             <div className="relative">
               <FileText size={18} className="absolute left-4 top-4 text-text-light" />
               <textarea
@@ -273,7 +417,7 @@ export default function ReportEmergency() {
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 disabled={submitting}
-                className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-neutral text-sm font-medium bg-white transition-colors focus:outline-none focus:border-primary resize-none"
+                className={`w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 text-sm font-medium bg-white transition-colors focus:outline-none focus:border-primary resize-none ${isListening ? 'border-red-300 ring-2 ring-red-100' : 'border-neutral'}`}
               />
             </div>
           </motion.div>
@@ -307,7 +451,7 @@ export default function ReportEmergency() {
       </div>
 
       {/* Mobile Sticky Submit */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-xl border-t border-neutral shadow-lg z-40">
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-neutral shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40">
         <button
           type="button"
           onClick={handleSubmit}

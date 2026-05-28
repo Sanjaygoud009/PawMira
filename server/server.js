@@ -11,6 +11,9 @@ const reportRoutes = require('./routes/reports');
 const whatsappRoutes = require('./routes/whatsapp');
 const lostFoundRoutes = require('./routes/lostFound');
 const contactRoutes = require('./routes/contact');
+const adminRoutes = require('./routes/adminRoutes');
+const messagesRoutes = require('./routes/messagesRoutes');
+const { startCleanupService } = require('./services/cleanupService');
 
 const app = express();
 
@@ -45,6 +48,8 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/lost-found', lostFoundRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/messages', messagesRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -70,6 +75,9 @@ const PORT = process.env.PORT || 5000;
 connectDB().then(() => {
   app.listen(PORT, () => {
     console.log(`[SERVER_STARTED] PawMira API running on port ${PORT}`);
+    
+    // Start automated daily cleanup cron job
+    startCleanupService();
 
     // Background job: Inactivity Timeout (runs every minute)
     setInterval(async () => {

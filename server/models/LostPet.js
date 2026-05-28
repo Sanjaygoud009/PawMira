@@ -51,6 +51,31 @@ const LostPetSchema = new mongoose.Schema({
     enum: ['searching', 'found', 'reunited'],
     default: 'searching',
   },
+  area_name: {
+    type: String, // E.g., 'Near Suncity' for privacy
+  },
+  reunited_image_url: {
+    type: String,
+  },
+  is_archived: {
+    type: Boolean,
+    default: false,
+  },
+  is_deleted: {
+    type: Boolean,
+    default: false,
+  },
+  deleted_at: {
+    type: Date,
+  },
+  moderated_by: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  moderation_reason: {
+    type: String,
+    enum: ['spam', 'fake rescue', 'abuse', 'dangerous content', 'duplicate'],
+  },
   created_at: {
     type: Date,
     default: Date.now,
@@ -58,5 +83,6 @@ const LostPetSchema = new mongoose.Schema({
 });
 
 LostPetSchema.index({ location: '2dsphere' });
+LostPetSchema.index({ status: 1, is_archived: 1 });
 
 module.exports = mongoose.model('LostPet', LostPetSchema);

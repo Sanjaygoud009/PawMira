@@ -12,6 +12,7 @@ import {
   Clock,
   ArrowRight,
   ChevronRight,
+  Sparkles,
 } from 'lucide-react';
 
 const fadeInUp = {
@@ -29,91 +30,115 @@ const staggerContainer = {
 
 function Hero() {
   return (
-    <section className="relative min-h-[90vh] flex items-center overflow-hidden bg-dark">
-      {/* Background Image */}
+    <section className="relative min-h-[95vh] flex items-center overflow-hidden bg-[#0A0F1C]">
+      {/* Background Image with dimming and blur effects */}
       <div
         className="absolute inset-0 z-0"
         style={{
           backgroundImage: "url('/background_image.png')",
           backgroundSize: 'cover',
-          backgroundPosition: 'center'
+          backgroundPosition: 'center right 20%'
         }}
       />
 
-      {/* Gradient Overlays for readability and matching screenshot */}
-      <div className="absolute inset-0 z-0 bg-gradient-to-r from-dark/95 via-dark/80 to-transparent" />
-      <div className="absolute inset-0 z-0 bg-gradient-to-b from-dark/60 via-transparent to-dark" />
-
-      {/* Floating cards matching screenshot positioning */}
+      {/* Cinematic Overlays */}
+      {/* Strong dark blue on the left for text readability */}
+      <div className="absolute inset-0 z-0 bg-gradient-to-r from-[#0A0F1C] via-[#0A0F1C]/90 to-transparent" />
+      {/* Top overlay to prevent navbar brightness */}
+      <div className="absolute top-0 left-0 right-0 h-40 z-0 bg-gradient-to-b from-[#0A0F1C] to-transparent" />
+      {/* Bottom overlay for seamless transition */}
+      <div className="absolute bottom-0 left-0 right-0 h-32 z-0 bg-gradient-to-t from-white to-transparent opacity-10" />
+      
+      {/* Floating Status Cards */}
       <motion.div
-        animate={{ y: [0, -8, 0] }}
-        transition={{ duration: 4, repeat: Infinity }}
-        className="hidden md:flex absolute top-[30%] right-[10%] px-5 py-4 bg-dark/70 backdrop-blur-md border border-white/10 rounded-2xl z-10 items-center gap-3 shadow-2xl"
+        animate={{ y: [0, -12, 0] }}
+        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+        className="hidden md:flex absolute top-[25%] right-[15%] px-5 py-3 bg-[#121829] border border-white/10 rounded-2xl z-10 items-center gap-4 shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
       >
-        <div className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center border border-success/30">
-          <Heart size={16} className="text-success" />
+        <div className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center border border-success/30 shadow-[0_0_15px_rgba(34,197,94,0.2)]">
+          <Heart size={18} className="text-success" />
         </div>
         <div>
-          <p className="text-sm font-bold text-white">Rescued!</p>
-          <p className="text-xs text-neutral-400">2 mins ago</p>
+          <p className="text-sm font-semibold text-white tracking-wide">Rescued!</p>
+          <p className="text-[11px] font-medium text-white/50 uppercase tracking-widest mt-0.5">2 mins ago</p>
         </div>
       </motion.div>
 
       <motion.div
-        animate={{ y: [0, 8, 0] }}
-        transition={{ duration: 4.5, repeat: Infinity }}
-        className="hidden md:flex absolute bottom-[20%] right-[30%] px-5 py-4 bg-dark/70 backdrop-blur-md border border-white/10 rounded-2xl z-10 items-center gap-3 shadow-2xl"
+        animate={{ y: [0, 12, 0] }}
+        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+        className="hidden md:flex absolute bottom-[15%] right-[40%] px-5 py-3 bg-[#121829] border border-white/10 rounded-2xl z-10 items-center gap-4 shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
       >
-        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30">
-          <MapPin size={16} className="text-primary" />
+        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30 shadow-[0_0_15px_rgba(255,107,53,0.2)]">
+          <AlertTriangle size={18} className="text-primary" />
         </div>
         <div>
-          <p className="text-sm font-bold text-white">New Report</p>
-          <p className="text-xs text-neutral-400">Nearby: 0.5 km</p>
+          <p className="text-sm font-semibold text-white tracking-wide">New Emergency</p>
+          <p className="text-[11px] font-medium text-white/50 uppercase tracking-widest mt-0.5">Nearby: 0.5 km</p>
         </div>
       </motion.div>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-12 w-full pt-10">
+      {/* Main Content */}
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pt-20 pb-10 flex flex-col justify-center">
         <motion.div
-          initial={{ opacity: 0, x: -40 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.8 }}
-          className="space-y-8 max-w-2xl"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="space-y-6 max-w-xl"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-dark/50 backdrop-blur-sm border border-primary/30">
-            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-primary text-sm font-medium">24/7 Emergency Reporting</span>
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-[#121829] border border-white/10 shadow-md">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+            </span>
+            <span className="text-white/90 text-xs font-semibold tracking-wide uppercase">Live Emergency Network</span>
           </div>
 
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black text-white leading-[1.1] tracking-tight">
+          {/* Heading */}
+          <h1 className="text-[3.5rem] sm:text-6xl lg:text-[4.5rem] font-black text-white leading-[1.05] tracking-tight drop-shadow-lg">
             Every Paw
             <br />
             Deserves a{' '}
-            <span className="text-primary">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-orange-400 to-amber-300 drop-shadow-sm">
               Miracle
             </span>
           </h1>
 
-          <p className="text-lg text-neutral-300 max-w-lg leading-relaxed">
-            Report an injured dog in under 30 seconds. Your report triggers an instant response
-            from nearby volunteers and NGOs. Together, we save lives.
+          {/* Description */}
+          <p className="text-[17px] text-white/60 max-w-[500px] leading-relaxed font-medium pb-2">
+            A real-time animal emergency response platform. Report an injured dog in under 30 seconds and connect instantly with nearby rescue volunteers.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 pt-4">
+          <div className="grid grid-cols-3 gap-3 max-w-md pt-1">
+            {[
+              ['Live', 'case tracking'],
+              ['3-step', 'reporting'],
+              ['Nearby', 'responders'],
+            ].map(([value, label]) => (
+              <div key={value} className="border-l border-white/15 pl-3">
+                <p className="text-lg font-black text-white">{value}</p>
+                <p className="text-[11px] uppercase tracking-wider text-white/45">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 pt-2">
             <Link
               to="/report"
-              className="flex items-center justify-center gap-2 px-8 py-4 bg-primary text-white font-bold rounded-2xl text-lg hover:bg-primary-dark transition-all duration-200 shadow-lg shadow-primary/30"
+              className="group flex items-center justify-center gap-2.5 px-6 py-3.5 bg-primary text-white font-semibold rounded-xl text-base hover:bg-primary-hover transition-all duration-300 shadow-[0_0_20px_rgba(255,107,53,0.3)] hover:shadow-[0_0_30px_rgba(255,107,53,0.5)] hover:-translate-y-0.5"
             >
-              <AlertTriangle size={20} />
+              <AlertTriangle size={18} className="transition-transform group-hover:scale-110" />
               Report Emergency
             </Link>
             <a
               href="https://wa.me/919999999999?text=I%20want%20to%20report%20an%20injured%20dog"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 px-8 py-4 bg-[#25D366] text-white font-bold rounded-2xl text-lg hover:bg-[#128C7E] transition-all duration-200 shadow-lg shadow-[#25D366]/20"
+              className="group flex items-center justify-center gap-2.5 px-6 py-3.5 bg-white/5 backdrop-blur-md text-white border border-white/10 font-semibold rounded-xl text-base hover:bg-white/10 transition-all duration-300 hover:-translate-y-0.5"
             >
-              <MessageCircle size={20} />
+              <MessageCircle size={18} className="text-[#25D366] transition-transform group-hover:scale-110" />
               WhatsApp Report
             </a>
           </div>
@@ -127,22 +152,19 @@ function Stats() {
   const stats = [
     { icon: Heart, value: '3', label: 'Dogs Rescued', color: 'text-success' },
     { icon: Users, value: '2+', label: 'Volunteers', color: 'text-primary' },
-    { icon: Building2, value: '0', label: 'Partner NGOs', color: 'text-blue-400' },
+    { icon: Building2, value: 'Open', label: 'NGO Ready', color: 'text-blue-400' },
     { icon: Clock, value: '<30s', label: 'Report Time', color: 'text-amber-400' },
   ];
 
   return (
     <section className="py-16 bg-white border-y border-neutral">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          {...staggerContainer}
-          className="grid grid-cols-2 lg:grid-cols-4 gap-8"
-        >
+        <motion.div {...staggerContainer} className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {stats.map((stat, i) => (
             <motion.div
               key={i}
               {...fadeInUp}
-              className="text-center space-y-2"
+              className="rounded-2xl border border-neutral/70 bg-background/60 px-4 py-6 text-center space-y-2 shadow-sm"
             >
               <stat.icon size={28} className={`mx-auto ${stat.color}`} />
               <p className="text-3xl sm:text-4xl font-black text-dark">{stat.value}</p>
@@ -181,7 +203,8 @@ function HowItWorks() {
     <section className="py-20 sm:py-28 bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div {...fadeInUp} className="text-center mb-16">
-          <span className="inline-block px-4 py-1.5 bg-primary/10 text-primary text-sm font-semibold rounded-full mb-4">
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 bg-primary/10 text-primary text-sm font-semibold rounded-full mb-4">
+            <Sparkles size={14} />
             Simple 3-Step Process
           </span>
           <h2 className="text-3xl sm:text-4xl font-black text-dark">
@@ -231,11 +254,6 @@ function HowItWorks() {
 function CTABanner() {
   return (
     <section className="py-20 gradient-dark relative overflow-hidden">
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-primary/3 rounded-full blur-3xl" />
-      </div>
-
       <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <motion.div {...fadeInUp} className="space-y-8">
           <h2 className="text-3xl sm:text-5xl font-black text-white">

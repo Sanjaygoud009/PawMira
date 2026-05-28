@@ -20,11 +20,19 @@ const Volunteer = lazy(() => import('./pages/Volunteer'));
 const Contact = lazy(() => import('./pages/Contact'));
 const Gallery = lazy(() => import('./pages/Gallery'));
 const LostFound = lazy(() => import('./pages/LostFound'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <PageLoader />;
   if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <PageLoader />;
+  if (!user || user.role !== 'admin') return <Navigate to="/dashboard" replace />;
   return children;
 }
 
@@ -51,6 +59,14 @@ function AppRoutes() {
               <ProtectedRoute>
                 <Dashboard />
               </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminDashboard />
+              </AdminRoute>
             }
           />
           <Route path="*" element={<Navigate to="/" replace />} />

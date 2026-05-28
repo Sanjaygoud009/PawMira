@@ -19,8 +19,10 @@ import L from 'leaflet';
 import StatusBadge from '../components/ui/StatusBadge';
 import PriorityBadge from '../components/ui/PriorityBadge';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { getSafeImageUrl } from '../utils/imageUtils';
 import api from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
+import { format } from 'date-fns';
 
 // Fix Leaflet icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -201,9 +203,9 @@ function MapView({ reports, onUpdateStatus }) {
               <div className="space-y-2 min-w-[200px]">
                 {report.image_url && (
                   <img
-                    src={report.image_url}
+                    src={getSafeImageUrl(report.image_url)}
                     alt="Report"
-                    className="w-full h-24 object-cover rounded-lg"
+                    className="w-16 h-16 object-cover rounded-xl"
                   />
                 )}
                 <div className="flex items-center gap-2">
@@ -228,12 +230,18 @@ function MapView({ reports, onUpdateStatus }) {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('rescues'); // 'rescues' | 'inbox'
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('list');
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [sortBy, setSortBy] = useState('-created_at');
+
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editMessageContent, setEditMessageContent] = useState('');
 
   const fetchReports = useCallback(async () => {
     try {
@@ -251,9 +259,19 @@ export default function Dashboard() {
     }
   }, [statusFilter, priorityFilter, sortBy]);
 
+  const fetchMessages = useCallback(async () => {
+    try {
+      const { data } = await api.get('/messages');
+      setMessages(data);
+    } catch (err) {
+      toast.error('Failed to load messages');
+    }
+  }, []);
+
   useEffect(() => {
-    fetchReports();
-  }, [fetchReports]);
+    if (activeTab === 'rescues') fetchReports();
+    else if (activeTab === 'inbox') fetchMessages();
+  }, [activeTab, fetchReports, fetchMessages]);
 
   const handleUpdateStatus = async (id, newStatus) => {
     try {
@@ -265,28 +283,73 @@ export default function Dashboard() {
     }
   };
 
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
+    try {
+      const { data } = await api.post('/messages', { content: newMessage });
+      setMessages(prev => [...prev, data]);
+      setNewMessage('');
+    } catch (err) {
+      toast.error('Failed to send message');
+    }
+  };
+
+  const handleEditMessage = async (e) => {
+    e.preventDefault();
+    if (!editMessageContent.trim() || !editingMessageId) return;
+    try {
+      const { data } = await api.put(`/messages/${editingMessageId}`, { content: editMessageContent });
+      setMessages(prev => prev.map(m => m._id === editingMessageId ? data : m));
+      setEditingMessageId(null);
+      setEditMessageContent('');
+      toast.success('Message updated');
+    } catch (err) {
+      toast.error('Failed to edit message');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-neutral pb-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-dark">Dashboard</h1>
             <p className="text-sm text-text-light mt-0.5">
-              Welcome, {user?.name || 'Volunteer'} • {reports.length} reports
+              Welcome, {user?.name || 'Volunteer'}
             </p>
           </div>
-          <button
-            onClick={fetchReports}
-            className="self-start flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white border border-neutral rounded-xl hover:bg-neutral/30 transition-colors"
-          >
-            <RefreshCw size={14} />
-            Refresh
-          </button>
+          
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab('rescues')}
+              className={`px-5 py-2 rounded-xl font-bold text-sm transition-colors ${activeTab === 'rescues' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'bg-neutral text-text-dark hover:bg-neutral-dark'}`}
+            >
+              Active Rescues
+            </button>
+            <button
+              onClick={() => setActiveTab('inbox')}
+              className={`px-5 py-2 rounded-xl font-bold text-sm transition-colors flex items-center gap-2 ${activeTab === 'inbox' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'bg-neutral text-text-dark hover:bg-neutral-dark'}`}
+            >
+              Platform Inbox
+            </button>
+          </div>
         </div>
 
-        {/* Stats */}
-        <StatsBar reports={reports} />
+        {activeTab === 'rescues' ? (
+          <div className="space-y-6 animate-in fade-in">
+            <div className="flex justify-between items-center">
+              <p className="text-sm font-semibold text-text-light">{reports.length} reports</p>
+              <button
+                onClick={fetchReports}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white border border-neutral rounded-xl hover:bg-neutral/30 transition-colors"
+              >
+                <RefreshCw size={14} /> Refresh
+              </button>
+            </div>
+            {/* Stats */}
+            <StatsBar reports={reports} />
 
         {/* Filters & View Toggle */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
@@ -334,28 +397,103 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Content */}
-        {loading ? (
-          <div className="py-20">
-            <LoadingSpinner size="lg" className="mx-auto" />
+            {/* Content */}
+            {loading ? (
+              <div className="py-20">
+                <LoadingSpinner size="lg" className="mx-auto" />
+              </div>
+            ) : reports.length === 0 ? (
+              <div className="py-20 text-center">
+                <AlertTriangle size={40} className="mx-auto text-neutral-dark mb-4" />
+                <p className="text-lg font-semibold text-dark">No reports found</p>
+                <p className="text-sm text-text-light mt-1">Try adjusting your filters</p>
+              </div>
+            ) : view === 'map' ? (
+              <MapView reports={reports} onUpdateStatus={handleUpdateStatus} />
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {reports.map((report) => (
+                  <ReportCard
+                    key={report._id}
+                    report={report}
+                    onUpdateStatus={handleUpdateStatus}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        ) : reports.length === 0 ? (
-          <div className="py-20 text-center">
-            <AlertTriangle size={40} className="mx-auto text-neutral-dark mb-4" />
-            <p className="text-lg font-semibold text-dark">No reports found</p>
-            <p className="text-sm text-text-light mt-1">Try adjusting your filters</p>
-          </div>
-        ) : view === 'map' ? (
-          <MapView reports={reports} onUpdateStatus={handleUpdateStatus} />
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {reports.map((report) => (
-              <ReportCard
-                key={report._id}
-                report={report}
-                onUpdateStatus={handleUpdateStatus}
+          <div className="animate-in fade-in h-[600px] flex flex-col bg-white border border-neutral rounded-3xl overflow-hidden shadow-sm">
+            <div className="p-4 border-b border-neutral bg-gray-50/50">
+              <h2 className="font-bold text-dark">Support & Announcements</h2>
+              <p className="text-xs text-text-light">Messages from the PawMira Admin team</p>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar flex flex-col bg-slate-50/30">
+              {messages.map(m => {
+                const isAdmin = m.sender !== user._id; // Anything not from me is from admin/broadcast
+                const isBroadcast = m.receiver === null;
+                return (
+                  <div key={m._id} className={`max-w-[85%] sm:max-w-[70%] rounded-2xl p-4 text-sm group ${isAdmin ? 'bg-white border border-neutral shadow-sm self-start rounded-tl-none' : 'bg-primary text-white self-end rounded-tr-none shadow-md shadow-primary/20'}`}>
+                    {isAdmin && isBroadcast && (
+                      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-primary mb-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span> Broadcast
+                      </div>
+                    )}
+                    {isAdmin && !isBroadcast && (
+                      <div className="text-[10px] uppercase tracking-wider font-bold text-text-light mb-1">Admin Support</div>
+                    )}
+                    
+                    {editingMessageId === m._id ? (
+                      <form onSubmit={handleEditMessage} className="flex flex-col gap-2 mt-1">
+                        <input 
+                          autoFocus
+                          value={editMessageContent}
+                          onChange={(e) => setEditMessageContent(e.target.value)}
+                          className="w-full bg-white/20 text-white placeholder-white/50 border border-white/30 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button type="button" onClick={() => setEditingMessageId(null)} className="text-[11px] text-white/80 hover:text-white">Cancel</button>
+                          <button type="submit" className="text-[11px] font-bold text-white bg-white/20 px-3 py-1 rounded-md hover:bg-white/30">Save</button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-start gap-2">
+                          <span className={isAdmin ? 'text-dark leading-relaxed' : 'text-white leading-relaxed'}>{m.content}</span>
+                          {!isAdmin && (
+                            <button onClick={() => { setEditingMessageId(m._id); setEditMessageContent(m.content); }} className="opacity-0 group-hover:opacity-100 text-white/80 hover:text-white transition-opacity">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                            </button>
+                          )}
+                        </div>
+                        <p className={`text-[10px] mt-2 font-medium ${isAdmin ? 'text-text-light' : 'text-white/80'}`}>
+                          {format(new Date(m.created_at), 'MMM d, h:mm a')} {m.is_edited && <span className="italic ml-1 opacity-80">(edited)</span>}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+              {messages.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-full text-text-light">
+                  <p>No messages yet.</p>
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={handleSendMessage} className="p-4 border-t border-neutral bg-white flex gap-3">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={e => setNewMessage(e.target.value)}
+                placeholder="Message the PawMira Admin team..."
+                className="flex-1 bg-neutral rounded-xl px-5 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
               />
-            ))}
+              <button type="submit" disabled={!newMessage.trim()} className="bg-primary text-white px-8 rounded-xl font-bold text-sm hover:bg-primary-hover disabled:opacity-50 transition-colors shadow-md shadow-primary/20">
+                Send
+              </button>
+            </form>
           </div>
         )}
       </div>

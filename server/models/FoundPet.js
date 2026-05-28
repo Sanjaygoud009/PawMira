@@ -42,6 +42,30 @@ const FoundPetSchema = new mongoose.Schema({
     enum: ['active', 'matched', 'resolved'],
     default: 'active',
   },
+  verification_status: {
+    type: String,
+    enum: ['pending', 'verified'],
+    default: 'pending',
+  },
+  is_archived: {
+    type: Boolean,
+    default: false,
+  },
+  is_deleted: {
+    type: Boolean,
+    default: false,
+  },
+  deleted_at: {
+    type: Date,
+  },
+  moderated_by: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
+  moderation_reason: {
+    type: String,
+    enum: ['spam', 'fake rescue', 'abuse', 'dangerous content', 'duplicate'],
+  },
   created_at: {
     type: Date,
     default: Date.now,
@@ -49,5 +73,6 @@ const FoundPetSchema = new mongoose.Schema({
 });
 
 FoundPetSchema.index({ location: '2dsphere' });
+FoundPetSchema.index({ status: 1, is_archived: 1 });
 
 module.exports = mongoose.model('FoundPet', FoundPetSchema);

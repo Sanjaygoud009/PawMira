@@ -5,11 +5,23 @@ const mongoose = require('mongoose');
 // @route   POST /api/reports
 exports.createReport = async (req, res) => {
   try {
-    const { reporter_name, reporter_phone, description, latitude, longitude, address, issue_type } = req.body;
+    const { reporter_name, reporter_phone, description, latitude, longitude, address, issue_type, priority } = req.body;
 
     if (!reporter_phone || !latitude || !longitude || !issue_type) {
       return res.status(400).json({ message: 'Phone, location, and issue type are required' });
     }
+
+    const PRIORITY_MAP = {
+      severe_injury: 'critical',
+      injured: 'high',
+      stuck: 'high',
+      starving: 'medium',
+      abandoned: 'low',
+      other: 'low',
+    };
+    const allowedPriorities = new Set(['low', 'medium', 'high', 'critical']);
+
+    const calculatedPriority = allowedPriorities.has(priority) ? priority : PRIORITY_MAP[issue_type] || 'medium';
 
     const reportData = {
       reporter_name: reporter_name || 'Anonymous',
@@ -21,6 +33,7 @@ exports.createReport = async (req, res) => {
       },
       address,
       issue_type,
+      priority: calculatedPriority,
       source: 'web',
       history: [{ status: 'open', updated_at: new Date() }],
     };
@@ -107,6 +120,14 @@ exports.getReports = async (req, res) => {
       },
       {
         $unwind: { path: '$primary_responder_info', preserveNullAndEmptyArrays: true }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'backup_responders',
+          foreignField: '_id',
+          as: 'backup_responders_info'
+        }
       }
     );
 
@@ -120,7 +141,11 @@ exports.getReports = async (req, res) => {
       primary_responder: r.primary_responder_info ? {
         _id: r.primary_responder_info._id,
         name: r.primary_responder_info.name
-      } : null
+      } : null,
+      backup_responders: r.backup_responders_info ? r.backup_responders_info.map(u => ({
+        _id: u._id,
+        name: u.name
+      })) : []
     }));
 
     res.json(transformed);
@@ -139,10 +164,26 @@ exports.respondToReport = async (req, res) => {
 
     const userId = req.user._id;
 
-    if (!report.primary_responder) {
+    // Calculate current responders count
+    const hasPrimary = !!report.primary_responder;
+    const backupCount = report.backup_responders ? report.backup_responders.length : 0;
+    const totalResponders = (hasPrimary ? 1 : 0) + backupCount;
+
+    // Check if current user is already responding
+    const isAlreadyPrimary = hasPrimary && report.primary_responder.toString() === userId.toString();
+    const isAlreadyBackup = report.backup_responders && report.backup_responders.some(id => id.toString() === userId.toString());
+
+    if (isAlreadyPrimary || isAlreadyBackup) {
+      return res.status(400).json({ message: 'You are already responding to this rescue.' });
+    }
+
+    if (!hasPrimary) {
       report.primary_responder = userId;
       report.status = 'in_progress';
-    } else if (report.primary_responder.toString() !== userId.toString() && !report.backup_responders.includes(userId)) {
+    } else {
+      if (totalResponders >= 3) {
+        return res.status(400).json({ message: 'This rescue already has the maximum of 3 responders.' });
+      }
       report.backup_responders.push(userId);
     }
 
@@ -255,6 +296,41 @@ exports.updateReport = async (req, res) => {
 
 exports.getDeletedReports = async (req, res) => {
   res.json(await Report.find({ is_deleted: true }).sort({ deleted_at: -1 }).lean());
+};
+
+// @desc    Resolve an emergency (Mark as safe with photo confirmation)
+// @route   POST /api/reports/:id/resolve
+exports.resolveReport = async (req, res) => {
+  try {
+    const { resolved_by_name, resolved_by_role } = req.body;
+    const report = await Report.findById(req.params.id);
+    if (!report || report.is_deleted) return res.status(404).json({ message: 'Report not found' });
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'Resolution photo is required.' });
+    }
+
+    report.status = 'safe';
+    report.is_archived = true;
+    report.resolution_image_url = req.file.path;
+    report.resolved_by_name = resolved_by_name || 'Community Hero';
+    report.resolved_by_role = resolved_by_role || 'Community Member';
+    
+    // Add to timeline
+    report.history.push({ 
+      status: 'safe', 
+      updated_by: req.user ? req.user._id : null, 
+      updated_at: new Date() 
+    });
+    
+    report.last_activity_at = new Date();
+
+    await report.save();
+    res.json(report);
+  } catch (error) {
+    console.error(`[REPORT_ERROR] resolveReport: ${error.message}`);
+    res.status(500).json({ message: 'Failed to resolve report' });
+  }
 };
 
 exports.deleteReport = async (req, res) => {

@@ -4,6 +4,7 @@
 @theme {
   --color-primary: #F97316;
   --color-primary-light: #FB923C;
+  --color-primary-hover: #EA580C;
   --color-primary-dark: #EA580C;
   --color-secondary: #1E293B;
   --color-secondary-light: #334155;
@@ -13,11 +14,14 @@
   --color-success-light: #4ADE80;
   --color-warning: #EF4444;
   --color-warning-light: #F87171;
+  --color-error: #EF4444;
   --color-neutral: #E5E7EB;
   --color-neutral-dark: #9CA3AF;
   --color-text: #1E293B;
+  --color-text-dark: #0F172A;
   --color-text-light: #64748B;
   --font-family-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 @layer base {
@@ -27,15 +31,32 @@
   }
 
   body {
+    font-family: var(--font-family-sans);
     background-color: var(--color-background);
     color: var(--color-text);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
+  img {
+    max-width: 100%;
+  }
+
+  ::selection {
+    background: rgba(249, 115, 22, 0.24);
+  }
+
   /* ===== Touch Target Minimums ===== */
   button, a, input, select, textarea {
     min-height: 44px;
+  }
+
+  button, a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input, select, textarea {
+    caret-color: var(--color-primary);
   }
 }
 
@@ -114,5 +135,16 @@
     background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }

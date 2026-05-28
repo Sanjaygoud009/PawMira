@@ -9,7 +9,8 @@ const {
   respondToReport,
   addReportUpdate,
   toggleMonitor,
-  addCommunityFlag
+  addCommunityFlag,
+  resolveReport
 } = require('../controllers/reportController');
 const { protect, authorize } = require('../middleware/auth');
 const upload = require('../middleware/upload');
@@ -23,6 +24,10 @@ router.get('/', getReports);
 
 // Admin only — view soft-deleted reports
 router.get('/deleted', protect, authorize('admin'), getDeletedReports);
+
+// Public/Protected — resolve emergency
+// Note: Keeping it public/optional auth based on project setup for public reports
+router.post('/:id/resolve', upload.single('image'), resolveReport);
 
 // Protected — responder actions
 router.post('/:id/respond', protect, respondToReport);

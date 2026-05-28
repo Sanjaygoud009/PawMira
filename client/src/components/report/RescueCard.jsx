@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react';
-import { MapPin, Clock, Eye, AlertCircle, Share2, MessageCircle, CheckCircle, Activity, HeartPulse } from 'lucide-react';
+import { useState } from 'react';
+import { MapPin, Clock, Eye, AlertCircle, Share2, CheckCircle, Activity, HeartPulse, Crown, UserRoundCheck } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
 import api from '../../utils/api';
-import html2canvas from 'html2canvas';
+
+import { getSafeImageUrl } from '../../utils/imageUtils';
 
 const SEVERITY_COLORS = {
   critical: 'bg-red-500 text-white',
@@ -22,7 +23,6 @@ const STATUS_CONFIG = {
 
 export default function RescueCard({ report, onUpdate, user }) {
   const [loading, setLoading] = useState(false);
-  const cardRef = useRef(null);
 
   const handleRespond = async () => {
     if (!user) return toast.error('Please login to respond.');
@@ -49,22 +49,42 @@ export default function RescueCard({ report, onUpdate, user }) {
   };
 
   const handleShare = async () => {
-    try {
-      toast.loading('Generating Share Card...', { id: 'share' });
-      const canvas = await html2canvas(cardRef.current, { scale: 2, useCORS: true });
-      const image = canvas.toDataURL('image/jpeg', 0.9);
-      
-      const link = document.createElement('a');
-      link.href = image;
-      link.download = `PawMira-Rescue-${report._id.substring(0,6)}.jpg`;
-      link.click();
-      toast.success('Card downloaded! Share it on WhatsApp/Instagram.', { id: 'share' });
-    } catch (err) {
-      toast.error('Failed to generate share card', { id: 'share' });
+    const shareUrl = `${window.location.origin}/feed`;
+    const shareData = {
+      title: `PawMira Rescue: ${report.issue_type.replace('_', ' ')}`,
+      text: `Urgent rescue needed at ${report.address || 'Nearby'}. Severity: ${report.priority}. Help save a life!`,
+      url: shareUrl,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        toast.success('Thanks for sharing!');
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('[SHARE_ERROR]', err);
+          toast.error('Failed to share');
+        }
+      }
+    } else {
+      // Fallback: Copy link to clipboard
+      try {
+        await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`);
+        toast.success('Rescue info copied to clipboard! Share it with your friends.');
+      } catch (err) {
+        toast.error('Failed to copy link');
+      }
     }
   };
 
+  const primaryCount = report.primary_responder ? 1 : 0;
+  const backupCount = report.backup_responders?.length || 0;
+  const totalResponders = primaryCount + backupCount;
+  const maxResponders = 3;
+  const remainingSpots = Math.max(maxResponders - totalResponders, 0);
+
   const isPrimary = user && report.primary_responder?._id === user._id;
+  const isBackup = user && report.backup_responders?.some(b => (b._id || b) === user._id);
   const isMonitoring = user && report.monitors?.includes(user._id);
 
   const timeAgo = formatDistanceToNow(new Date(report.created_at), { addSuffix: true });
@@ -73,59 +93,14 @@ export default function RescueCard({ report, onUpdate, user }) {
   const StatusIcon = STATUS_CONFIG[report.status]?.icon || AlertCircle;
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-neutral overflow-hidden hover:shadow-md transition-shadow relative">
-      {/* Hidden container specifically styled for the downloaded card */}
-      <div className="absolute top-[-9999px] left-[-9999px]">
-        <div ref={cardRef} className="w-[1080px] h-[1920px] bg-[#1a1a2e] text-white flex flex-col p-16 font-sans relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#1a1a2e]/80 to-[#1a1a2e] z-10 pointer-events-none"></div>
-          <img src={report.image_url || 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800'} alt="Rescue" className="absolute top-0 left-0 w-full h-[60%] object-cover z-0" crossOrigin="anonymous" />
-          
-          <div className="z-20 mt-auto flex flex-col gap-6">
-            <div className="flex gap-4">
-              <span className={`px-6 py-2 rounded-full font-bold text-2xl uppercase tracking-wider ${SEVERITY_COLORS[report.priority] || SEVERITY_COLORS.medium}`}>
-                {report.priority} Emergency
-              </span>
-              <span className="bg-white/20 backdrop-blur-md px-6 py-2 rounded-full font-bold text-2xl flex items-center gap-2">
-                <StatusIcon size={24} /> {STATUS_CONFIG[report.status]?.label}
-              </span>
-            </div>
-            
-            <h1 className="text-8xl font-black leading-tight tracking-tight mt-4 capitalize text-white drop-shadow-2xl">
-              {report.issue_type.replace('_', ' ')}
-            </h1>
-            
-            <div className="flex items-center gap-4 text-white/80 text-3xl mt-4 bg-black/40 backdrop-blur-sm p-6 rounded-2xl w-fit">
-              <MapPin size={36} className="text-[#FF6B35]" />
-              {report.address || 'Location hidden (Nearby)'}
-            </div>
-            
-            <p className="text-3xl text-white/70 line-clamp-3 leading-relaxed max-w-4xl mt-6">{report.description}</p>
-          </div>
+    <article className="bg-white rounded-2xl shadow-sm border border-neutral overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 relative">
 
-          <div className="z-20 mt-24 pt-12 border-t border-white/20 flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center p-4">
-                <img src="/pawmira-logo.png" alt="Logo" className="w-full h-full object-contain" />
-              </div>
-              <div>
-                <h2 className="text-4xl font-bold text-white">PawMira Rescue Network</h2>
-                <p className="text-2xl text-[#FF6B35] font-medium mt-1">Join the community. Save a life.</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-2xl text-white/60">Reported: {new Date(report.created_at).toLocaleDateString()}</p>
-              <p className="text-2xl text-white font-bold mt-2">pawmira.org</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Actual UI Card */}
       <div className="relative h-48 w-full bg-neutral">
         <img 
-          src={report.image_url || 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=500'} 
+          src={getSafeImageUrl(report.image_url)} 
           alt="Rescue Case" 
           className="w-full h-full object-cover"
+          crossOrigin="anonymous"
         />
         <div className="absolute top-4 left-4 flex flex-col gap-2">
           <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm ${SEVERITY_COLORS[report.priority] || SEVERITY_COLORS.medium}`}>
@@ -133,7 +108,7 @@ export default function RescueCard({ report, onUpdate, user }) {
           </span>
         </div>
         <div className="absolute bottom-4 left-4 flex gap-2">
-           <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm ${STATUS_CONFIG[report.status]?.color || STATUS_CONFIG.open.color} bg-white`}>
+           <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm bg-white ${STATUS_CONFIG[report.status]?.color || STATUS_CONFIG.open.color}`}>
             <StatusIcon size={14} /> {STATUS_CONFIG[report.status]?.label}
           </span>
         </div>
@@ -146,47 +121,125 @@ export default function RescueCard({ report, onUpdate, user }) {
         <div className="space-y-2 mb-6">
           <div className="flex items-center gap-2 text-xs text-text-light">
             <MapPin size={14} className="text-primary shrink-0" />
-            <span className="truncate">{report.address || 'Location approximate'}</span>
+            {report.latitude && report.longitude ? (
+              <a 
+                href={`https://www.google.com/maps/search/?api=1&query=${report.latitude},${report.longitude}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="truncate hover:text-primary hover:underline"
+                title="View on Google Maps"
+              >
+                {report.address || 'Location approximate'}
+              </a>
+            ) : (
+              <span className="truncate">{report.address || 'Location approximate'}</span>
+            )}
           </div>
           <div className="flex items-center gap-2 text-xs text-text-light">
             <Clock size={14} className="shrink-0" />
             <span>Reported {timeAgo} • <span className="font-medium text-text-dark">Last verified {verifiedAgo}</span></span>
           </div>
-          <div className="flex items-center justify-between text-xs pt-2">
-             <div className="flex items-center gap-2 text-primary font-medium">
-               <Eye size={14} />
-               {report.monitors?.length || 0} people monitoring
-             </div>
-             {report.primary_responder && (
-               <div className="text-text-light">
-                 Responder: <span className="font-medium text-text-dark">{report.primary_responder.name}</span>
-               </div>
-             )}
+          <div className="flex flex-col gap-2 pt-2 border-t border-neutral/50">
+            <div className="flex items-center justify-between text-xs">
+              <div className="flex items-center gap-1.5 text-primary font-medium">
+                <Eye size={14} />
+                <span>{report.monitors?.length || 0} monitoring</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-text-light font-medium">
+                <Activity size={13} className="text-success shrink-0" />
+                <span>
+                  Responders: <strong className="text-text-dark">{totalResponders}/{maxResponders}</strong>
+                  {remainingSpots > 0 ? ` (${remainingSpots} left)` : ' (Full)'}
+                </span>
+              </div>
+            </div>
+
+            {totalResponders > 0 && (
+              <div className="flex flex-wrap gap-1.5 items-center mt-1">
+                <span className="text-[10px] uppercase tracking-wider text-text-light font-bold">Crew:</span>
+                {report.primary_responder && (
+                  <span className="inline-flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full text-[10px] font-semibold">
+                    <Crown size={11} /> {report.primary_responder.name} (Lead)
+                  </span>
+                )}
+                {report.backup_responders && report.backup_responders.map((b, idx) => (
+                  <span key={b._id || idx} className="inline-flex items-center gap-1 bg-neutral text-text-dark border border-neutral px-2 py-0.5 rounded-full text-[10px] font-medium">
+                    <UserRoundCheck size={11} /> {b.name || 'Backup'}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
+
+          {/* Timeline UI */}
+          {report.history && report.history.length > 0 && (
+            <div className="pt-3 mt-3 border-t border-neutral/50">
+              <span className="text-[10px] uppercase tracking-wider text-text-light font-bold mb-2 block">Rescue Timeline:</span>
+              <div className="flex items-center gap-1 overflow-x-auto pb-1 no-scrollbar text-xs">
+                {report.history.map((h, i) => (
+                  <div key={i} className="flex items-center shrink-0">
+                    <span className="flex items-center gap-1 text-text-dark font-medium bg-neutral/50 px-2 py-1 rounded-md">
+                      {STATUS_CONFIG[h.status]?.icon && (() => {
+                        const Icon = STATUS_CONFIG[h.status].icon;
+                        return <Icon size={12} className={STATUS_CONFIG[h.status]?.color.split(' ')[1]} />;
+                      })()}
+                      {STATUS_CONFIG[h.status]?.label || h.status}
+                    </span>
+                    {i < report.history.length - 1 && <span className="text-neutral-dark mx-1">→</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 mt-auto pt-4 border-t border-neutral">
-          {report.status === 'open' || report.status === 'inactive' ? (
+          {isPrimary && report.status !== 'safe' ? (
+            <button 
+              onClick={() => window.dispatchEvent(new CustomEvent('openResolveModal', { detail: report._id }))}
+              className="flex-1 bg-success text-white py-2 rounded-xl text-sm font-bold hover:bg-green-600 transition-colors shadow-sm flex items-center justify-center gap-2"
+              title="Mark this rescue as safe and resolved."
+            >
+              <CheckCircle size={16} /> Mark as Safe
+            </button>
+          ) : report.status === 'safe' ? (
+            <button 
+              disabled={true}
+              className="flex-1 bg-green-50 text-success border border-success/30 py-2 rounded-xl text-sm font-bold cursor-default shadow-sm flex items-center justify-center gap-2"
+            >
+              <CheckCircle size={16} /> Rescue Resolved
+            </button>
+          ) : isBackup ? (
+            <button 
+              disabled={true}
+              className="flex-1 bg-[#e8f5e9] text-success border border-success/30 py-2 rounded-xl text-sm font-medium cursor-default shadow-sm font-semibold"
+              title="You have joined this rescue as a backup responder!"
+            >
+              Joined as Backup
+            </button>
+          ) : totalResponders >= maxResponders ? (
+            <button 
+              disabled={true}
+              className="flex-1 bg-neutral-dark text-text-light py-2 rounded-xl text-sm font-medium cursor-not-allowed opacity-60"
+              title="All responder slots (3/3) are currently filled."
+            >
+              Responders Full
+            </button>
+          ) : report.status === 'open' || report.status === 'inactive' ? (
             <button 
               onClick={handleRespond}
               disabled={loading}
-              className="flex-1 bg-primary text-white py-2 rounded-xl text-sm font-medium hover:bg-primary-hover transition-colors"
+              className="flex-1 bg-primary text-white py-2 rounded-xl text-sm font-medium hover:bg-primary-hover transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loading ? 'Processing...' : "I'm Responding"}
-            </button>
-          ) : isPrimary ? (
-             <button 
-              className="flex-1 bg-warning text-white py-2 rounded-xl text-sm font-medium hover:bg-yellow-600 transition-colors"
-            >
-              Update Proof
             </button>
           ) : (
             <button 
               onClick={handleRespond}
               disabled={loading || report.status === 'safe'}
-              className="flex-1 bg-neutral text-text-dark py-2 rounded-xl text-sm font-medium hover:bg-neutral-dark transition-colors disabled:opacity-50"
+              className="flex-1 bg-neutral text-text-dark py-2 rounded-xl text-sm font-medium hover:bg-neutral-dark border border-neutral transition-colors shadow-sm disabled:opacity-50"
             >
-              Join as Backup
+              {loading ? 'Joining...' : 'Join as Backup'}
             </button>
           )}
 
@@ -194,6 +247,7 @@ export default function RescueCard({ report, onUpdate, user }) {
             onClick={handleMonitor}
             className={`p-2 rounded-xl border transition-colors ${isMonitoring ? 'bg-primary/10 border-primary/20 text-primary' : 'border-neutral text-text-light hover:bg-neutral'}`}
             title="Monitor this rescue"
+            aria-label="Monitor this rescue"
           >
             <Eye size={18} />
           </button>
@@ -202,11 +256,12 @@ export default function RescueCard({ report, onUpdate, user }) {
             onClick={handleShare}
             className="p-2 rounded-xl border border-neutral text-text-light hover:bg-neutral transition-colors"
             title="Generate Share Card"
+            aria-label="Share this rescue"
           >
             <Share2 size={18} />
           </button>
         </div>
       </div>
-    </div>
+    </article>
   );
 }

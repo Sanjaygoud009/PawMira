@@ -16,10 +16,12 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          motion: ['framer-motion'],
-          maps: ['react-leaflet', 'leaflet'],
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('framer-motion')) return 'motion';
+          if (id.includes('react-leaflet') || id.includes('leaflet')) return 'maps';
+          if (id.includes('react') || id.includes('react-router-dom')) return 'vendor';
+          return undefined;
         },
       },
     },
