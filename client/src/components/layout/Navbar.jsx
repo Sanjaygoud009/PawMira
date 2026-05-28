@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, AlertTriangle, Heart } from 'lucide-react';
+import { Menu, X, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -23,12 +23,8 @@ export default function Navbar() {
   const navLinks = [
     { to: '/', label: 'Home' },
     { to: '/feed', label: 'Live Feed' },
-    { to: '/about', label: 'About' },
     { to: '/services', label: 'Services' },
-    { to: '/adoption', label: 'Adoption' },
     { to: '/lost-found', label: 'Lost & Found' },
-    { to: '/gallery', label: 'Gallery' },
-    { to: '/volunteer', label: 'Volunteer' },
     { to: '/contact', label: 'Contact' },
   ];
 
@@ -64,7 +60,7 @@ export default function Navbar() {
                 to={link.to}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 min-h-0 ${
                   isActive(link.to)
-                    ? 'text-primary'
+                    ? 'text-primary bg-primary/10'
                     : 'text-neutral hover:text-white hover:bg-white/5'
                 }`}
               >
@@ -77,6 +73,14 @@ export default function Navbar() {
           <div className="hidden lg:flex items-center gap-3">
             {user ? (
               <>
+                {user.role === 'admin' && (
+                  <Link
+                    to="/admin"
+                    className="px-4 py-2 text-sm font-medium text-white bg-error/90 rounded-lg hover:bg-error transition-colors min-h-0"
+                  >
+                    Admin Panel
+                  </Link>
+                )}
                 <Link
                   to="/dashboard"
                   className="px-4 py-2 text-sm font-medium text-white bg-secondary-light rounded-lg hover:bg-secondary-light/80 transition-colors min-h-0"
@@ -110,8 +114,9 @@ export default function Navbar() {
           {/* Mobile Hamburger */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="lg:hidden p-2 text-white hover:text-primary transition-colors"
+            className="lg:hidden p-2 rounded-xl text-white hover:text-primary hover:bg-white/5 transition-colors"
             aria-label="Toggle menu"
+            aria-expanded={isOpen}
           >
             {isOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -146,6 +151,14 @@ export default function Navbar() {
               <div className="pt-3 border-t border-white/10 space-y-2">
                 {user ? (
                   <>
+                    {user.role === 'admin' && (
+                      <Link
+                        to="/admin"
+                        className="block px-4 py-3 text-sm font-medium text-white bg-error/90 rounded-xl text-center"
+                      >
+                        Admin Panel
+                      </Link>
+                    )}
                     <Link
                       to="/dashboard"
                       className="block px-4 py-3 text-sm font-medium text-white bg-secondary-light rounded-xl text-center"
@@ -169,7 +182,7 @@ export default function Navbar() {
                 )}
                 <Link
                   to="/report"
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white text-sm font-semibold rounded-xl shadow-lg"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white text-sm font-semibold rounded-xl shadow-lg shadow-primary/25"
                 >
                   <AlertTriangle size={16} />
                   Report Emergency

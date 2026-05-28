@@ -86,11 +86,11 @@ export default function Footer() {
               </li>
               <li className="flex items-center gap-2.5 text-sm text-neutral-dark">
                 <Phone size={16} className="shrink-0 text-primary" />
-                <span>+91 99999 99999</span>
+                <span>+91 99999 xxxxx </span>
               </li>
               <li className="flex items-center gap-2.5 text-sm text-neutral-dark">
                 <Mail size={16} className="shrink-0 text-primary" />
-                <span>help@pawmira.org</span>
+                <span>pawmiraofficial@gmail.com </span>
               </li>
             </ul>
           </div>
