@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import { Navigation, MapPin } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
@@ -12,14 +12,40 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-function LocationMarker({ position, setPosition }) {
+function LocationMarker({ position, setPosition, disabled, defaultCenter }) {
+  const markerRef = useRef(null);
+
+  const eventHandlers = useMemo(
+    () => ({
+      dragend() {
+        const marker = markerRef.current;
+        if (marker != null) {
+          const latLng = marker.getLatLng();
+          setPosition([latLng.lat, latLng.lng]);
+        }
+      },
+    }),
+    [setPosition]
+  );
+
   useMapEvents({
     click(e) {
-      setPosition([e.latlng.lat, e.latlng.lng]);
+      if (!disabled) {
+        setPosition([e.latlng.lat, e.latlng.lng]);
+      }
     },
   });
 
-  return position ? <Marker position={position} /> : null;
+  const markerPos = position || defaultCenter;
+
+  return (
+    <Marker 
+      draggable={!disabled} 
+      eventHandlers={eventHandlers} 
+      position={markerPos} 
+      ref={markerRef} 
+    />
+  );
 }
 
 export default function LocationPicker({ onLocationSelect, disabled }) {
@@ -59,37 +85,32 @@ export default function LocationPicker({ onLocationSelect, disabled }) {
     );
   }, [handlePositionChange]);
 
-  // Auto-detect on mount
-  useEffect(() => {
-    detectLocation();
-  }, []);
+  // Auto-detect on mount is intentionally disabled
+  // User must click 'Auto Detect' or adjust the pin manually
 
   return (
     <div className="space-y-3">
-      <button
-        type="button"
-        onClick={detectLocation}
-        disabled={disabled || loading}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary/10 text-primary border border-primary/20 rounded-xl font-medium text-sm hover:bg-primary/20 transition-colors disabled:opacity-50"
-      >
-        <Navigation size={16} className={loading ? 'animate-spin' : ''} />
-        {loading ? 'Detecting GPS...' : position ? 'Re-detect My Location' : 'Detect My Location'}
-      </button>
+      <div className="flex justify-between items-center bg-white border border-neutral p-3 rounded-2xl shadow-sm">
+        <div className="flex-1 pr-3">
+          <p className="text-sm font-semibold text-dark">Adjust Location</p>
+          <p className="text-xs text-text-light mt-0.5">Drag the pin or tap the map</p>
+        </div>
+        <button
+          type="button"
+          onClick={detectLocation}
+          disabled={disabled || loading}
+          className="flex items-center gap-1.5 px-4 py-2 bg-primary/10 text-primary rounded-xl font-bold text-xs hover:bg-primary/20 transition-colors disabled:opacity-50 whitespace-nowrap"
+        >
+          <Navigation size={14} className={loading ? 'animate-spin' : ''} />
+          {loading ? 'Detecting...' : 'Auto Detect'}
+        </button>
+      </div>
 
       {error && (
-        <p className="text-xs text-warning text-center">{error}</p>
+        <p className="text-xs text-warning">{error}</p>
       )}
 
-      {position && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-success/10 border border-success/20 rounded-xl">
-          <MapPin size={14} className="text-success shrink-0" />
-          <p className="text-xs text-success font-medium truncate">
-            Location: {position[0].toFixed(5)}, {position[1].toFixed(5)}
-          </p>
-        </div>
-      )}
-
-      <div className="h-56 rounded-2xl overflow-hidden border border-neutral shadow-sm">
+      <div className="h-[280px] rounded-2xl overflow-hidden border border-neutral shadow-sm relative z-0">
         <MapContainer
           center={position || defaultCenter}
           zoom={position ? 15 : 12}
@@ -100,13 +121,18 @@ export default function LocationPicker({ onLocationSelect, disabled }) {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <LocationMarker position={position} setPosition={handlePositionChange} />
+          <LocationMarker position={position} setPosition={handlePositionChange} disabled={disabled} defaultCenter={defaultCenter} />
         </MapContainer>
       </div>
-
-      <p className="text-xs text-text-light text-center">
-        📍 Tap the map to adjust the pin location
-      </p>
+      
+      {position && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-success/10 border border-success/20 rounded-xl">
+          <MapPin size={14} className="text-success shrink-0" />
+          <p className="text-xs text-success font-medium truncate">
+            Selected: {position[0].toFixed(5)}, {position[1].toFixed(5)}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
