@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Mail, Phone, MapPin, Send, User, MessageSquare, Loader2 } from 'lucide-react';
+import api from '../utils/api';
 
 const fadeInUp = {
   initial: { opacity: 0, y: 30 },
@@ -22,21 +23,16 @@ export default function Contact() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000'}/api/contact`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success("Message sent! We'll get back to you soon 🐾");
-        setForm({ name: '', email: '', message: '' });
-      } else {
-        toast.error(data.message || 'Failed to send message. Please try again.');
-      }
+      const res = await api.post('/contact', form);
+      toast.success("Message sent! We'll get back to you soon 🐾");
+      setForm({ name: '', email: '', message: '' });
     } catch (err) {
       console.error('Contact form error:', err);
-      toast.error('Could not reach the server. Please try again later.');
+      if (err.response && err.response.data && err.response.data.message) {
+        toast.error(err.response.data.message);
+      } else {
+        toast.error('Could not reach the server. Please try again later.');
+      }
     } finally {
       setLoading(false);
     }
