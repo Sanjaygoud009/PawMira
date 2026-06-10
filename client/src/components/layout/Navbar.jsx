@@ -1,14 +1,44 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, AlertTriangle } from 'lucide-react';
+import { Menu, X, AlertTriangle, Bell, CheckCircle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
+import api from '../../utils/api';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
   const { user, logout } = useAuth();
   const location = useLocation();
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+    }
+  }, [user]);
+
+  const fetchNotifications = async () => {
+    try {
+      const { data } = await api.get('/notifications');
+      setNotifications(data.data);
+      setUnreadCount(data.unread_count);
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await api.put('/notifications/read-all');
+      setUnreadCount(0);
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    } catch (error) {
+      console.error('Failed to mark all as read:', error);
+    }
+  };
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -25,6 +55,7 @@ export default function Navbar() {
     { to: '/feed', label: 'Live Feed' },
     { to: '/services', label: 'Services' },
     { to: '/lost-found', label: 'Lost & Found' },
+    { to: '/heroes', label: 'Heroes' },
     { to: '/contact', label: 'Contact' },
   ];
 
@@ -81,6 +112,53 @@ export default function Navbar() {
                     Admin Panel
                   </Link>
                 )}
+                
+                {/* Notification Bell */}
+                <div className="relative">
+                  <button 
+                    onClick={() => setShowNotifications(!showNotifications)}
+                    className="p-2 text-neutral hover:text-white transition-colors relative"
+                  >
+                    <Bell size={20} />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-error rounded-full border border-dark"></span>
+                    )}
+                  </button>
+                  
+                  {/* Dropdown */}
+                  <AnimatePresence>
+                    {showNotifications && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="absolute right-0 mt-2 w-80 bg-dark-card border border-white/10 rounded-xl shadow-xl overflow-hidden z-50"
+                      >
+                        <div className="flex items-center justify-between p-3 border-b border-white/10 bg-dark">
+                          <span className="font-semibold text-white">Notifications</span>
+                          {unreadCount > 0 && (
+                            <button onClick={markAllAsRead} className="text-xs text-primary hover:text-primary-light flex items-center gap-1 transition-colors">
+                              <CheckCircle size={12} /> Mark all read
+                            </button>
+                          )}
+                        </div>
+                        <div className="max-h-64 overflow-y-auto bg-dark/95">
+                          {notifications.length === 0 ? (
+                            <div className="p-4 text-center text-sm text-neutral">No notifications</div>
+                          ) : (
+                            notifications.map(n => (
+                              <div key={n._id} className={`p-3 border-b border-white/5 text-sm ${!n.is_read ? 'bg-primary/5' : ''}`}>
+                                <div className="font-semibold text-white">{n.title}</div>
+                                <div className="text-neutral-light mt-0.5 text-xs">{n.message}</div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
                 <Link
                   to="/dashboard"
                   className="px-4 py-2 text-sm font-medium text-white bg-secondary-light rounded-lg hover:bg-secondary-light/80 transition-colors min-h-0"
