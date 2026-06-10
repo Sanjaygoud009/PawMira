@@ -40,11 +40,63 @@ const userSchema = new mongoose.Schema({
   resetPasswordExpires: {
     type: Date,
   },
+  // Added for geographical escalation and leaderboards
+  location: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point',
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+    },
+  },
+  service_area: {
+    type: String,
+    trim: true,
+  },
+  city: {
+    type: String,
+    trim: true,
+  },
+  state: {
+    type: String,
+    trim: true,
+  },
+  // Gamification fields
+  hearts: {
+    type: Number,
+    default: 0,
+  },
+  hero_level: {
+    type: String,
+    default: 'Animal Friend 🐾',
+  },
+  rescue_count: {
+    type: Number,
+    default: 0,
+  },
+  reunited_pets_count: {
+    type: Number,
+    default: 0,
+  },
+  achievements: [
+    {
+      title: String,
+      type: String,
+      earned_at: {
+        type: Date,
+        default: Date.now,
+      }
+    }
+  ],
   created_at: {
     type: Date,
     default: Date.now,
   },
 });
+
+userSchema.index({ location: '2dsphere' });
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {

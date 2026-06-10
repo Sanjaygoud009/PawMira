@@ -13,7 +13,10 @@ const lostFoundRoutes = require('./routes/lostFound');
 const contactRoutes = require('./routes/contact');
 const adminRoutes = require('./routes/adminRoutes');
 const messagesRoutes = require('./routes/messagesRoutes');
+const notificationRoutes = require('./routes/notifications');
+const leaderboardRoutes = require('./routes/leaderboards');
 const { startCleanupService } = require('./services/cleanupService');
+const { startEscalationService } = require('./services/escalationService');
 
 const app = express();
 
@@ -50,6 +53,8 @@ app.use('/api/lost-found', lostFoundRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/leaderboards', leaderboardRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -78,6 +83,9 @@ connectDB().then(() => {
     
     // Start automated daily cleanup cron job
     startCleanupService();
+
+    // Start escalation cron job
+    startEscalationService();
 
     // Background job: Inactivity Timeout (runs every minute)
     setInterval(async () => {

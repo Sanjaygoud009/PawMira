@@ -20,6 +20,7 @@ const Volunteer = lazy(() => import('./pages/Volunteer'));
 const Contact = lazy(() => import('./pages/Contact'));
 const Gallery = lazy(() => import('./pages/Gallery'));
 const LostFound = lazy(() => import('./pages/LostFound'));
+const Heroes = lazy(() => import('./pages/Heroes'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
@@ -57,6 +58,7 @@ function AppRoutes() {
           <Route path="/contact" element={<Contact />} />
           <Route path="/gallery" element={<Gallery />} />
           <Route path="/lost-found" element={<LostFound />} />
+          <Route path="/heroes" element={<Heroes />} />
           <Route
             path="/dashboard"
             element={

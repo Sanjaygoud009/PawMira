@@ -1,5 +1,6 @@
 const Report = require('../models/Report');
 const mongoose = require('mongoose');
+const { awardHearts } = require('../utils/gamification');
 
 // @desc    Create a new report
 // @route   POST /api/reports
@@ -35,14 +36,24 @@ exports.createReport = async (req, res) => {
       issue_type,
       priority: calculatedPriority,
       source: 'web',
+      response_deadline: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes deadline
       history: [{ status: 'open', updated_at: new Date() }],
+      timeline: [{ event_type: 'created', description: 'Emergency reported by community.', created_at: new Date() }]
     };
+
+    if (req.user) {
+      reportData.reporter_id = req.user._id;
+    }
 
     if (req.file) {
       reportData.image_url = req.file.path;
     }
 
     const report = await Report.create(reportData);
+
+    if (req.user) {
+      await awardHearts({ userId: req.user._id, actionType: 'report_created', points: 1, reportId: report._id });
+    }
 
     console.log(`[REPORT_CREATED] id=${report._id} phone=${reporter_phone} issue=${issue_type} priority=${report.priority}`);
     res.status(201).json(report);
@@ -180,6 +191,12 @@ exports.respondToReport = async (req, res) => {
     if (!hasPrimary) {
       report.primary_responder = userId;
       report.status = 'in_progress';
+      
+      // Award points
+      await awardHearts({ userId: userId, actionType: 'rescue_accepted', points: 3, reportId: report._id });
+      if (report.reporter_id) {
+        await awardHearts({ userId: report.reporter_id, actionType: 'report_active', points: 2, reportId: report._id });
+      }
     } else {
       if (totalResponders >= 3) {
         return res.status(400).json({ message: 'This rescue already has the maximum of 3 responders.' });
@@ -189,6 +206,13 @@ exports.respondToReport = async (req, res) => {
 
     report.last_activity_at = new Date();
     report.history.push({ status: report.status, updated_by: userId, updated_at: new Date() });
+    
+    report.timeline.push({
+      event_type: 'accepted',
+      description: 'A responder has accepted this rescue request.',
+      user_id: userId,
+      created_at: new Date()
+    });
     
     await report.save();
     res.json(report);
@@ -222,7 +246,18 @@ exports.addReportUpdate = async (req, res) => {
     if (update_type === 'treatment') report.status = 'under_treatment';
     if (update_type === 'safe') report.status = 'safe';
 
+    report.timeline.push({
+      event_type: update_type || 'update',
+      description: text,
+      user_id: req.user._id,
+      created_at: new Date()
+    });
+
     await report.save();
+    
+    // Award 5 hearts for providing a proof/update
+    await awardHearts({ userId: req.user._id, actionType: 'proof_uploaded', points: 5, reportId: report._id });
+    
     res.json(report);
   } catch (error) {
     res.status(500).json({ message: 'Failed to add update' });
@@ -323,9 +358,21 @@ exports.resolveReport = async (req, res) => {
       updated_at: new Date() 
     });
     
+    report.timeline.push({
+      event_type: 'safe',
+      description: 'Animal marked as safe and rescued!',
+      user_id: req.user ? req.user._id : null,
+      created_at: new Date()
+    });
+    
     report.last_activity_at = new Date();
 
     await report.save();
+
+    if (req.user) {
+      await awardHearts({ userId: req.user._id, actionType: 'safe_marked', points: 10, reportId: report._id });
+    }
+
     res.json(report);
   } catch (error) {
     console.error(`[REPORT_ERROR] resolveReport: ${error.message}`);

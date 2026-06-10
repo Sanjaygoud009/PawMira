@@ -8,6 +8,7 @@ const {
   reuniteLostPet,
   getAchievements
 } = require('../controllers/lostFoundController');
+const { optionalAuth } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const { reportLimiter } = require('../middleware/rateLimiter');
 
@@ -17,7 +18,7 @@ router.get('/achievements', getAchievements);
 // Lost Pets
 router.post('/lost-pets', reportLimiter, upload.single('image'), createLostPet);
 router.get('/lost-pets', getLostPets);
-router.post('/lost-pets/:id/reunite', upload.single('image'), reuniteLostPet);
+router.post('/lost-pets/:id/reunite', optionalAuth, upload.single('image'), reuniteLostPet);
 
 // Found Pets
 router.post('/found-pets', reportLimiter, upload.single('image'), createFoundPet);

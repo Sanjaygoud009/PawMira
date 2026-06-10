@@ -12,12 +12,12 @@ const {
   addCommunityFlag,
   resolveReport
 } = require('../controllers/reportController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize, optionalAuth } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const { reportLimiter } = require('../middleware/rateLimiter');
 
 // Public — create report (with image upload)
-router.post('/', reportLimiter, upload.single('image'), createReport);
+router.post('/', optionalAuth, reportLimiter, upload.single('image'), createReport);
 
 // Public — view reports (for the feed)
 router.get('/', getReports);

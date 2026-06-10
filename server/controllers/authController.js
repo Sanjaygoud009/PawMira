@@ -263,3 +263,26 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ message: 'Server error during password reset' });
   }
 };
+
+// @desc    Update user profile settings (Location)
+// @route   PUT /api/auth/profile
+exports.updateProfile = async (req, res) => {
+  try {
+    const { service_area, city, state } = req.body;
+    
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (service_area !== undefined) user.service_area = service_area;
+    if (city !== undefined) user.city = city;
+    if (state !== undefined) user.state = state;
+
+    await user.save();
+    res.status(200).json(user);
+  } catch (error) {
+    console.error(`[AUTH_ERROR] updateProfile: ${error.message}`);
+    res.status(500).json({ message: 'Server error updating profile' });
+  }
+};

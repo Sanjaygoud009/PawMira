@@ -9,9 +9,13 @@ import {
   CheckCircle,
   AlertTriangle,
   RefreshCw,
-  MapPin,
   Phone,
   User,
+  Heart,
+  Trophy,
+  Medal,
+  Settings,
+  MapPin,
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -229,8 +233,8 @@ function MapView({ reports, onUpdateStatus }) {
 }
 
 export default function Dashboard() {
-  const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('rescues'); // 'rescues' | 'inbox'
+  const { user, updateUser } = useAuth(); // Assume updateUser exists or we use local state
+  const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'rescues' | 'inbox'
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('list');
@@ -242,6 +246,14 @@ export default function Dashboard() {
   const [newMessage, setNewMessage] = useState('');
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editMessageContent, setEditMessageContent] = useState('');
+
+  // Profile Form State
+  const [profileForm, setProfileForm] = useState({
+    service_area: user?.service_area || '',
+    city: user?.city || '',
+    state: user?.state || ''
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const fetchReports = useCallback(async () => {
     try {
@@ -309,6 +321,21 @@ export default function Dashboard() {
     }
   };
 
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    try {
+      const { data } = await api.put('/auth/profile', profileForm);
+      toast.success('Profile updated successfully!');
+      if (updateUser) updateUser(data); // update context if available
+      setTimeout(() => window.location.reload(), 1000); // quick refresh to see changes
+    } catch (err) {
+      toast.error('Failed to update profile');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
@@ -321,23 +348,129 @@ export default function Dashboard() {
             </p>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === 'profile' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'bg-neutral text-text-dark hover:bg-neutral-dark'}`}
+            >
+              <User size={16} /> My Hero Profile
+            </button>
             <button
               onClick={() => setActiveTab('rescues')}
-              className={`px-5 py-2 rounded-xl font-bold text-sm transition-colors ${activeTab === 'rescues' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'bg-neutral text-text-dark hover:bg-neutral-dark'}`}
+              className={`px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === 'rescues' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'bg-neutral text-text-dark hover:bg-neutral-dark'}`}
             >
-              Active Rescues
+              <AlertTriangle size={16} /> Active Rescues
             </button>
             <button
               onClick={() => setActiveTab('inbox')}
-              className={`px-5 py-2 rounded-xl font-bold text-sm transition-colors flex items-center gap-2 ${activeTab === 'inbox' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'bg-neutral text-text-dark hover:bg-neutral-dark'}`}
+              className={`px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === 'inbox' ? 'bg-primary text-white shadow-md shadow-primary/20' : 'bg-neutral text-text-dark hover:bg-neutral-dark'}`}
             >
               Platform Inbox
             </button>
           </div>
         </div>
 
-        {activeTab === 'rescues' ? (
+        {activeTab === 'profile' && user ? (
+          <div className="space-y-6 animate-in fade-in">
+            {/* Hero Summary */}
+            <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-3xl p-6 sm:p-8 border border-primary/20 shadow-sm relative overflow-hidden">
+              <div className="absolute -right-10 -top-10 opacity-10">
+                <Trophy size={200} />
+              </div>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 relative z-10">
+                <div className="w-20 h-20 bg-white rounded-full flex justify-center items-center shadow-md border-4 border-primary/20">
+                  <span className="text-3xl">🦸</span>
+                </div>
+                <div>
+                  <h2 className="text-3xl font-black text-dark mb-1">{user.hero_level || 'Animal Friend 🐾'}</h2>
+                  <p className="text-primary font-bold flex items-center gap-2">
+                    <Heart size={18} fill="currentColor" /> {user.hearts || 0} Total Hearts
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 relative z-10">
+                <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-white">
+                  <p className="text-sm font-bold text-text-light uppercase tracking-wider mb-1">Rescues</p>
+                  <p className="text-2xl font-black text-dark">{user.rescue_count || 0}</p>
+                </div>
+                <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-white">
+                  <p className="text-sm font-bold text-text-light uppercase tracking-wider mb-1">Reunited</p>
+                  <p className="text-2xl font-black text-dark">{user.reunited_pets_count || 0}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Achievements */}
+              <div className="bg-white rounded-3xl p-6 border border-neutral shadow-sm">
+                <div className="flex items-center gap-3 mb-6">
+                  <Medal className="text-yellow-500" />
+                  <h3 className="font-bold text-lg">My Achievements ({user.achievements?.length || 0})</h3>
+                </div>
+                {(!user.achievements || user.achievements.length === 0) ? (
+                  <p className="text-text-light text-sm italic">Complete your first rescue to start earning badges!</p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3">
+                    {user.achievements.map((ach, idx) => (
+                      <div key={idx} className="flex items-center gap-3 p-3 bg-neutral/50 rounded-xl border border-neutral">
+                        <div className="bg-yellow-100 p-2 rounded-lg"><Trophy size={16} className="text-yellow-600"/></div>
+                        <div>
+                          <p className="font-bold text-sm text-dark">{ach.title}</p>
+                          <p className="text-[10px] text-text-light">Earned on {new Date(ach.earned_at).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Profile Settings */}
+              <div className="bg-white rounded-3xl p-6 border border-neutral shadow-sm">
+                <div className="flex items-center gap-3 mb-6">
+                  <Settings className="text-text-light" />
+                  <h3 className="font-bold text-lg">Profile & Location Settings</h3>
+                </div>
+                <form onSubmit={handleProfileUpdate} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-text-light uppercase tracking-wider mb-1">Service Area (Neighborhood/Zone)</label>
+                    <input
+                      type="text"
+                      value={profileForm.service_area}
+                      onChange={e => setProfileForm({ ...profileForm, service_area: e.target.value })}
+                      placeholder="e.g. KPHB, Madhapur"
+                      className="w-full px-4 py-2 border border-neutral rounded-xl bg-neutral/30 focus:outline-none focus:border-primary text-sm"
+                    />
+                    <p className="text-[10px] text-text-light mt-1">This connects you to the local Area Leaderboard.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-text-light uppercase tracking-wider mb-1">City</label>
+                      <input
+                        type="text"
+                        value={profileForm.city}
+                        onChange={e => setProfileForm({ ...profileForm, city: e.target.value })}
+                        className="w-full px-4 py-2 border border-neutral rounded-xl bg-neutral/30 focus:outline-none focus:border-primary text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-text-light uppercase tracking-wider mb-1">State</label>
+                      <input
+                        type="text"
+                        value={profileForm.state}
+                        onChange={e => setProfileForm({ ...profileForm, state: e.target.value })}
+                        className="w-full px-4 py-2 border border-neutral rounded-xl bg-neutral/30 focus:outline-none focus:border-primary text-sm"
+                      />
+                    </div>
+                  </div>
+                  <button type="submit" disabled={savingProfile} className="w-full bg-dark text-white py-2.5 rounded-xl text-sm font-bold hover:bg-black transition-colors disabled:opacity-50">
+                    {savingProfile ? 'Saving...' : 'Save Settings'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        ) : activeTab === 'rescues' ? (
           <div className="space-y-6 animate-in fade-in">
             <div className="flex justify-between items-center">
               <p className="text-sm font-semibold text-text-light">{reports.length} reports</p>

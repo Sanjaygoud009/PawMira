@@ -3,6 +3,7 @@ import { MapPin, Clock, Eye, AlertCircle, Share2, CheckCircle, Activity, HeartPu
 import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
 import api from '../../utils/api';
+import Timeline from '../ui/Timeline';
 
 import { getSafeImageUrl } from '../../utils/imageUtils';
 
@@ -172,24 +173,31 @@ export default function RescueCard({ report, onUpdate, user }) {
           </div>
 
           {/* Timeline UI */}
-          {report.history && report.history.length > 0 && (
+          {(report.timeline && report.timeline.length > 0) ? (
             <div className="pt-3 mt-3 border-t border-neutral/50">
-              <span className="text-[10px] uppercase tracking-wider text-text-light font-bold mb-2 block">Rescue Timeline:</span>
-              <div className="flex items-center gap-1 overflow-x-auto pb-1 no-scrollbar text-xs">
-                {report.history.map((h, i) => (
-                  <div key={i} className="flex items-center shrink-0">
-                    <span className="flex items-center gap-1 text-text-dark font-medium bg-neutral/50 px-2 py-1 rounded-md">
-                      {STATUS_CONFIG[h.status]?.icon && (() => {
-                        const Icon = STATUS_CONFIG[h.status].icon;
-                        return <Icon size={12} className={STATUS_CONFIG[h.status]?.color.split(' ')[1]} />;
-                      })()}
-                      {STATUS_CONFIG[h.status]?.label || h.status}
-                    </span>
-                    {i < report.history.length - 1 && <span className="text-neutral-dark mx-1">→</span>}
-                  </div>
-                ))}
-              </div>
+              <span className="text-[10px] uppercase tracking-wider text-text-light font-bold mb-2 block">Rescue Progress:</span>
+              <Timeline events={report.timeline} />
             </div>
+          ) : (
+            report.history && report.history.length > 0 && (
+              <div className="pt-3 mt-3 border-t border-neutral/50">
+                <span className="text-[10px] uppercase tracking-wider text-text-light font-bold mb-2 block">Status History:</span>
+                <div className="flex items-center gap-1 overflow-x-auto pb-1 no-scrollbar text-xs">
+                  {report.history.map((h, i) => (
+                    <div key={i} className="flex items-center shrink-0">
+                      <span className="flex items-center gap-1 text-text-dark font-medium bg-neutral/50 px-2 py-1 rounded-md">
+                        {STATUS_CONFIG[h.status]?.icon && (() => {
+                          const Icon = STATUS_CONFIG[h.status].icon;
+                          return <Icon size={12} className={STATUS_CONFIG[h.status]?.color.split(' ')[1]} />;
+                        })()}
+                        {STATUS_CONFIG[h.status]?.label || h.status}
+                      </span>
+                      {i < report.history.length - 1 && <span className="text-neutral-dark mx-1">→</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
           )}
         </div>
 

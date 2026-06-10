@@ -10,6 +10,10 @@ const reportSchema = new mongoose.Schema({
     required: [true, 'Phone number is required'],
     trim: true,
   },
+  reporter_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
   image_url: {
     type: String,
   },
@@ -157,6 +161,33 @@ const reportSchema = new mongoose.Schema({
     type: String,
     enum: ['spam', 'fake rescue', 'abuse', 'dangerous content', 'duplicate'],
   },
+  escalation_level: {
+    type: Number,
+    default: 0,
+  },
+  escalated_at: {
+    type: Date,
+  },
+  last_notification_at: {
+    type: Date,
+  },
+  response_deadline: {
+    type: Date,
+  },
+  timeline: [
+    {
+      event_type: String, // e.g., 'created', 'accepted', 'treated', 'safe', 'escalated'
+      description: String,
+      user_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+      created_at: {
+        type: Date,
+        default: Date.now,
+      },
+    }
+  ],
   created_at: {
     type: Date,
     default: Date.now,

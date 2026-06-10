@@ -1,5 +1,6 @@
 const LostPet = require('../models/LostPet');
 const FoundPet = require('../models/FoundPet');
+const { awardHearts } = require('../utils/gamification');
 
 // @desc    Create a lost pet report
 // @route   POST /api/lost-found/lost-pets
@@ -135,6 +136,11 @@ exports.reuniteLostPet = async (req, res) => {
     pet.reunited_image_url = req.file.path;
     
     await pet.save();
+
+    if (req.user) {
+      await awardHearts({ userId: req.user._id, actionType: 'pet_reunited', points: 20, reportId: pet._id, referenceModel: 'LostPet' });
+    }
+
     res.json(pet);
   } catch (error) {
     console.error(`[LOST_PET_ERROR] reunite: ${error.message}`);
