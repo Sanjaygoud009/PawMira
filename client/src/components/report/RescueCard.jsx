@@ -94,14 +94,15 @@ export default function RescueCard({ report, onUpdate, user }) {
   const StatusIcon = STATUS_CONFIG[report.status]?.icon || AlertCircle;
 
   return (
-    <article className="bg-white rounded-2xl shadow-sm border border-neutral overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 relative">
+    <article className="card overflow-hidden relative">
 
       <div className="relative h-48 w-full bg-neutral">
         <img 
           src={getSafeImageUrl(report.image_url)} 
-          alt="Rescue Case" 
+          alt={`Rescue: ${report.issue_type.replace('_', ' ')}`}
           className="w-full h-full object-cover"
           crossOrigin="anonymous"
+          loading="lazy"
         />
         <div className="absolute top-4 left-4 flex flex-col gap-2">
           <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm ${SEVERITY_COLORS[report.priority] || SEVERITY_COLORS.medium}`}>
@@ -115,9 +116,9 @@ export default function RescueCard({ report, onUpdate, user }) {
         </div>
       </div>
 
-      <div className="p-5 flex flex-col h-[calc(100%-12rem)]">
-        <h3 className="font-bold text-lg text-text-dark capitalize mb-1">{report.issue_type.replace('_', ' ')}</h3>
-        <p className="text-sm text-text-light line-clamp-2 mb-4 flex-grow">{report.description}</p>
+      <div className="p-4 sm:p-5 flex flex-col h-[calc(100%-12rem)]">
+        <h3 className="font-bold text-base sm:text-lg text-text-dark capitalize mb-1 truncate">{report.issue_type.replace('_', ' ')}</h3>
+        <p className="text-sm text-text-light line-clamp-2 mb-3 flex-grow">{report.description}</p>
 
         <div className="space-y-2 mb-6">
           <div className="flex items-center gap-2 text-xs text-text-light">

@@ -7,7 +7,8 @@ import L from 'leaflet';
 import RescueCard from '../components/report/RescueCard';
 import { getSafeImageUrl } from '../utils/imageUtils';
 import { Navigation, MapPin, List, RefreshCw, AlertTriangle, X } from 'lucide-react';
-import { PageLoader } from '../components/ui/LoadingSpinner';
+import { SkeletonGrid, SkeletonRescueCard } from '../components/ui/Skeleton';
+import EmptyState from '../components/ui/EmptyState';
 import { AnimatePresence, motion } from 'framer-motion';
 import ImageUpload from '../components/report/ImageUpload';
 import toast from 'react-hot-toast';
@@ -163,7 +164,17 @@ export default function RescueFeed() {
     return () => window.removeEventListener('openResolveModal', handleOpenResolve);
   }, []);
 
-  if (loading && reports.length === 0) return <PageLoader />;
+  if (loading && reports.length === 0) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="mb-8">
+          <div className="skeleton h-8 w-48 mb-2" />
+          <div className="skeleton h-4 w-72" />
+        </div>
+        <SkeletonGrid count={6} Component={SkeletonRescueCard} />
+      </div>
+    );
+  }
 
   const handleUpdate = () => {
     if (userLocation) fetchReports(userLocation[0], userLocation[1]);
@@ -171,7 +182,7 @@ export default function RescueFeed() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary mb-3">
@@ -299,13 +310,7 @@ export default function RescueFeed() {
             </div>
           ))}
           {reports.length === 0 && (
-            <div className="col-span-full rounded-2xl border border-dashed border-neutral bg-white py-14 px-4 text-center text-text-light">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success/10 text-success">
-                <Navigation size={22} />
-              </div>
-              <p className="text-lg font-bold text-text-dark">No active rescues found nearby</p>
-              <p className="mt-1 text-sm">When a report comes in, it will appear here instantly after refresh.</p>
-            </div>
+            <EmptyState preset="rescue" />
           )}
         </div>
       )}

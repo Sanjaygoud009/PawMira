@@ -77,7 +77,7 @@ export default function Services() {
                   <service.icon size={24} className="text-white" />
                 </div>
                 <h3 className="text-xl font-bold text-dark mb-3">{service.title}</h3>
-                <p className="text-sm text-neutral-600 leading-relaxed">{service.description}</p>
+                <p className="text-sm text-text-light leading-relaxed">{service.description}</p>
               </motion.div>
             ))}
           </div>
