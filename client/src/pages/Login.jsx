@@ -32,19 +32,28 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
+    <div className="min-h-[85vh] flex items-center justify-center px-4 py-8 sm:py-12">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
+        className="w-full max-w-4xl flex rounded-3xl overflow-hidden shadow-xl border border-neutral/50"
       >
-        <div className="text-center mb-8">
-          <img src="/logo.png" alt="PawMira" className="h-14 w-14 mx-auto rounded-xl mb-4" />
-          <h1 className="text-2xl font-black text-dark">Welcome Back</h1>
-          <p className="text-text-light text-sm mt-1">Sign in to access the dashboard</p>
+        {/* Left brand panel — desktop only */}
+        <div className="hidden md:flex md:w-2/5 gradient-dark flex-col justify-center items-center p-10 text-center">
+          <img src="/logo.png" alt="" className="h-16 w-16 rounded-xl mb-6 shadow-lg" />
+          <h2 className="text-2xl font-black text-white mb-3">Welcome Back</h2>
+          <p className="text-sm text-neutral-dark leading-relaxed">Every second counts. Sign in to manage rescues, track your impact, and save more lives.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-3xl shadow-xl border border-neutral/50 p-8 space-y-5">
+        {/* Right form panel */}
+        <div className="w-full md:w-3/5 bg-white p-6 sm:p-10">
+          <div className="text-center mb-6 md:text-left">
+            <img src="/logo.png" alt="PawMira" className="h-12 w-12 mx-auto md:mx-0 rounded-xl mb-3" />
+            <h1 className="text-2xl font-black text-dark">Sign In</h1>
+            <p className="text-text-light text-sm mt-1">Access your rescue dashboard</p>
+          </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-semibold text-dark mb-2">Email</label>
             <div className="relative">
@@ -100,6 +109,7 @@ export default function Login() {
             </Link>
           </p>
         </form>
+        </div>
       </motion.div>
     </div>
   );
