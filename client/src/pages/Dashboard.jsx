@@ -22,7 +22,8 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import StatusBadge from '../components/ui/StatusBadge';
 import PriorityBadge from '../components/ui/PriorityBadge';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { SkeletonGrid, SkeletonDashboardCard, SkeletonProfile } from '../components/ui/Skeleton';
+import EmptyState from '../components/ui/EmptyState';
 import { getSafeImageUrl } from '../utils/imageUtils';
 import api from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
@@ -115,7 +116,7 @@ function ReportCard({ report, onUpdateStatus }) {
       {report.image_url && (
         <img
           src={report.image_url}
-          alt="Report"
+          alt={`Report: ${report.issue_type?.replace('_', ' ')}`}
           className="w-full h-40 object-cover"
           loading="lazy"
         />
@@ -532,15 +533,9 @@ export default function Dashboard() {
 
             {/* Content */}
             {loading ? (
-              <div className="py-20">
-                <LoadingSpinner size="lg" className="mx-auto" />
-              </div>
+              <SkeletonGrid count={6} Component={SkeletonDashboardCard} />
             ) : reports.length === 0 ? (
-              <div className="py-20 text-center">
-                <AlertTriangle size={40} className="mx-auto text-neutral-dark mb-4" />
-                <p className="text-lg font-semibold text-dark">No reports found</p>
-                <p className="text-sm text-text-light mt-1">Try adjusting your filters</p>
-              </div>
+              <EmptyState preset="rescue" title="No reports found" description="Try adjusting your filters or check back later for new reports." cta={null} />
             ) : view === 'map' ? (
               <MapView reports={reports} onUpdateStatus={handleUpdateStatus} />
             ) : (
