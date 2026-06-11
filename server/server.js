@@ -1,5 +1,7 @@
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const connectDB = require('./config/db');
@@ -13,12 +15,64 @@ const lostFoundRoutes = require('./routes/lostFound');
 const contactRoutes = require('./routes/contact');
 const adminRoutes = require('./routes/adminRoutes');
 const messagesRoutes = require('./routes/messagesRoutes');
+const rescueMessageRoutes = require('./routes/rescueMessageRoutes');
 const notificationRoutes = require('./routes/notifications');
 const leaderboardRoutes = require('./routes/leaderboards');
 const { startCleanupService } = require('./services/cleanupService');
 const { startEscalationService } = require('./services/escalationService');
 
 const app = express();
+const httpServer = http.createServer(app);
+
+// Initialize Socket.io
+const io = new Server(httpServer, {
+  cors: {
+    origin: [
+      process.env.CLIENT_URL || 'http://localhost:5173',
+      'http://127.0.0.1:5173'
+    ],
+    methods: ['GET', 'POST']
+  }
+});
+
+// Setup Socket.io events
+io.on('connection', (socket) => {
+  console.log(`[SOCKET_CONNECTED] User: ${socket.id}`);
+
+  socket.on('join_rescue_room', (reportId) => {
+    socket.join(`rescue_${reportId}`);
+    console.log(`[SOCKET] User ${socket.id} joined rescue_${reportId}`);
+  });
+
+  socket.on('leave_rescue_room', (reportId) => {
+    socket.leave(`rescue_${reportId}`);
+    console.log(`[SOCKET] User ${socket.id} left rescue_${reportId}`);
+  });
+
+  socket.on('send_rescue_message', async (data) => {
+    try {
+      // data: { reportId, senderId, content }
+      const RescueMessage = require('./models/RescueMessage');
+      const User = require('./models/User');
+      
+      const newMessage = await RescueMessage.create({
+        report_id: data.reportId,
+        sender: data.senderId,
+        content: data.content
+      });
+
+      const populatedMessage = await RescueMessage.findById(newMessage._id).populate('sender', 'name profile_image_url role hero_level');
+
+      io.to(`rescue_${data.reportId}`).emit('receive_rescue_message', populatedMessage);
+    } catch (error) {
+      console.error('[SOCKET_ERROR] Failed to save/send message:', error);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`[SOCKET_DISCONNECTED] User: ${socket.id}`);
+  });
+});
 
 // CORS must come BEFORE helmet so preflight OPTIONS requests aren't blocked
 app.use(cors({
@@ -53,6 +107,7 @@ app.use('/api/lost-found', lostFoundRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api/rescue-messages', rescueMessageRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/leaderboards', leaderboardRoutes);
 
@@ -78,8 +133,8 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`[SERVER_STARTED] PawMira API running on port ${PORT}`);
+  httpServer.listen(PORT, () => {
+    console.log(`[SERVER_STARTED] PawMira API & Socket.io running on port ${PORT}`);
     
     // Start automated daily cleanup cron job
     startCleanupService();

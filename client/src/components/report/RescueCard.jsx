@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { MapPin, Clock, Eye, AlertCircle, Share2, CheckCircle, Activity, HeartPulse, Crown, UserRoundCheck } from 'lucide-react';
+import { MapPin, Clock, Eye, AlertCircle, Share2, CheckCircle, Activity, HeartPulse, Crown, UserRoundCheck, MessageCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import toast from 'react-hot-toast';
 import api from '../../utils/api';
 import Timeline from '../ui/Timeline';
+import RescueChat from '../chat/RescueChat';
 
 import { getSafeImageUrl } from '../../utils/imageUtils';
 
@@ -24,6 +25,7 @@ const STATUS_CONFIG = {
 
 export default function RescueCard({ report, onUpdate, user }) {
   const [loading, setLoading] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const handleRespond = async () => {
     if (!user) return toast.error('Please login to respond.');
@@ -87,6 +89,7 @@ export default function RescueCard({ report, onUpdate, user }) {
   const isPrimary = user && report.primary_responder?._id === user._id;
   const isBackup = user && report.backup_responders?.some(b => (b._id || b) === user._id);
   const isMonitoring = user && report.monitors?.includes(user._id);
+  const canChat = user && (isPrimary || isBackup || isMonitoring || report.reporter_id === user._id);
 
   const timeAgo = formatDistanceToNow(new Date(report.created_at), { addSuffix: true });
   const verifiedAgo = formatDistanceToNow(new Date(report.last_activity_at || report.created_at), { addSuffix: true });
@@ -252,6 +255,17 @@ export default function RescueCard({ report, onUpdate, user }) {
             </button>
           )}
 
+          {canChat && (
+            <button 
+              onClick={() => setIsChatOpen(true)}
+              className="p-2 rounded-xl border border-primary/20 text-primary hover:bg-primary/10 transition-colors shadow-sm"
+              title="Open Rescue Chat"
+              aria-label="Open Rescue Chat"
+            >
+              <MessageCircle size={18} />
+            </button>
+          )}
+
           <button 
             onClick={handleMonitor}
             className={`p-2 rounded-xl border transition-colors ${isMonitoring ? 'bg-primary/10 border-primary/20 text-primary' : 'border-neutral text-text-light hover:bg-neutral'}`}
@@ -271,6 +285,14 @@ export default function RescueCard({ report, onUpdate, user }) {
           </button>
         </div>
       </div>
+      
+      {isChatOpen && (
+        <RescueChat 
+          reportId={report._id} 
+          user={user} 
+          onClose={() => setIsChatOpen(false)} 
+        />
+      )}
     </article>
   );
 }
