@@ -49,32 +49,32 @@ function Hero() {
       {/* Bottom overlay for seamless transition */}
       <div className="absolute bottom-0 left-0 right-0 h-32 z-0 bg-gradient-to-t from-white to-transparent opacity-10" />
       
-      {/* Floating Status Cards */}
+      {/* Floating Status Cards — visible on all screens */}
       <motion.div
         animate={{ y: [0, -12, 0] }}
         transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-        className="hidden md:flex absolute top-[25%] right-[15%] px-5 py-3 bg-[#121829] border border-white/10 rounded-2xl z-10 items-center gap-4 shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
+        className="absolute top-[20%] right-4 md:right-[15%] px-4 py-2.5 bg-[#121829] border border-white/10 rounded-2xl z-10 flex items-center gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.6)] scale-90 sm:scale-100"
       >
-        <div className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center border border-success/30 shadow-[0_0_15px_rgba(34,197,94,0.2)]">
-          <Heart size={18} className="text-success" />
+        <div className="w-9 h-9 rounded-full bg-success/20 flex items-center justify-center border border-success/30">
+          <Heart size={16} className="text-success" />
         </div>
         <div>
           <p className="text-sm font-semibold text-white tracking-wide">Rescued!</p>
-          <p className="text-[11px] font-medium text-white/50 uppercase tracking-widest mt-0.5">2 mins ago</p>
+          <p className="text-[10px] font-medium text-white/50 uppercase tracking-widest mt-0.5">2 mins ago</p>
         </div>
       </motion.div>
 
       <motion.div
         animate={{ y: [0, 12, 0] }}
         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-        className="hidden md:flex absolute bottom-[15%] right-[40%] px-5 py-3 bg-[#121829] border border-white/10 rounded-2xl z-10 items-center gap-4 shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
+        className="hidden sm:flex absolute bottom-[15%] right-[10%] md:right-[40%] px-4 py-2.5 bg-[#121829] border border-white/10 rounded-2xl z-10 items-center gap-3 shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
       >
-        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30 shadow-[0_0_15px_rgba(255,107,53,0.2)]">
-          <AlertTriangle size={18} className="text-primary" />
+        <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30">
+          <AlertTriangle size={16} className="text-primary" />
         </div>
         <div>
           <p className="text-sm font-semibold text-white tracking-wide">New Emergency</p>
-          <p className="text-[11px] font-medium text-white/50 uppercase tracking-widest mt-0.5">Nearby: 0.5 km</p>
+          <p className="text-[10px] font-medium text-white/50 uppercase tracking-widest mt-0.5">Nearby: 0.5 km</p>
         </div>
       </motion.div>
 
@@ -96,11 +96,11 @@ function Hero() {
           </div>
 
           {/* Heading */}
-          <h1 className="text-[3.5rem] sm:text-6xl lg:text-[4.5rem] font-black text-white leading-[1.05] tracking-tight drop-shadow-lg">
+          <h1 className="text-[2.5rem] sm:text-5xl lg:text-[4.5rem] font-black text-white leading-[1.08] tracking-tight drop-shadow-lg">
             Every Paw
             <br />
             Deserves a{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-orange-400 to-amber-300 drop-shadow-sm">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-orange-400 to-amber-300">
               Miracle
             </span>
           </h1>

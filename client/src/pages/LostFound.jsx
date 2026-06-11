@@ -7,6 +7,8 @@ import axios from 'axios';
 import { getSafeImageUrl } from '../utils/imageUtils';
 import ImageUpload from '../components/report/ImageUpload';
 import LocationPicker from '../components/report/LocationPicker';
+import { SkeletonGrid, SkeletonLostFoundCard } from '../components/ui/Skeleton';
+import EmptyState from '../components/ui/EmptyState';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -437,10 +439,7 @@ export default function LostFound() {
 
         {/* Content */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-4">
-            <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-            <p className="text-text-light text-sm">Loading reports...</p>
-          </div>
+          <SkeletonGrid count={6} Component={SkeletonLostFoundCard} />
         ) : viewMode === 'map' ? (
           <div className="h-[520px] rounded-3xl overflow-hidden border border-neutral shadow-sm">
             <MapContainer center={userLocation || [17.385, 78.4867]} zoom={userLocation ? 12 : 11} className="h-full w-full">

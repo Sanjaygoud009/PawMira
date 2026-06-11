@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PawMira — Offline</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #0F172A;
+      color: #F8FAFC;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+      text-align: center;
+    }
+    .container { max-width: 400px; }
+    .emoji { font-size: 4rem; margin-bottom: 1.5rem; }
+    h1 { font-size: 1.5rem; font-weight: 800; margin-bottom: 0.75rem; }
+    p { color: #64748B; font-size: 0.875rem; line-height: 1.6; margin-bottom: 2rem; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      background: #F97316;
+      color: white;
+      font-weight: 600;
+      font-size: 0.875rem;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .btn:hover { background: #EA580C; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="emoji">🐾</div>
+    <h1>You're Offline</h1>
+    <p>PawMira needs an internet connection to load rescue reports and real-time data. Please check your connection and try again.</p>
+    <button class="btn" onclick="location.reload()">
+      ↻ Try Again
+    </button>
+  </div>
+</body>
+</html>
