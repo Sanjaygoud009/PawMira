@@ -176,9 +176,13 @@ export default function RescueFeed() {
     );
   }
 
-  const handleUpdate = () => {
-    if (userLocation) fetchReports(userLocation[0], userLocation[1]);
-    else fetchReports();
+  const handleUpdate = (updatedReport) => {
+    if (updatedReport && updatedReport._id) {
+      setReports(prev => prev.map(r => r._id === updatedReport._id ? { ...r, ...updatedReport } : r));
+    } else {
+      if (userLocation) fetchReports(userLocation[0], userLocation[1]);
+      else fetchReports();
+    }
   };
 
   return (

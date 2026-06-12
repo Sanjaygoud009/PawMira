@@ -71,7 +71,16 @@ exports.getReports = async (req, res) => {
     
     let pipeline = [];
 
-    // 1. GeoNear must be the first stage if lat/lng provided
+    // 1. Build Base Query
+    let baseQuery = { is_deleted: false };
+    if (status) {
+      baseQuery.status = status;
+    } else {
+      baseQuery.status = { $ne: 'safe' }; // Hide safe reports from live feed
+    }
+    if (priority) baseQuery.priority = priority;
+
+    // 2. Initial Stage (GeoNear or Match)
     if (lat && lng) {
       pipeline.push({
         $geoNear: {
@@ -79,20 +88,11 @@ exports.getReports = async (req, res) => {
           distanceField: 'distance',
           maxDistance: parseInt(radius),
           spherical: true,
-          query: { is_deleted: false }
+          query: baseQuery
         }
       });
     } else {
-      pipeline.push({ $match: { is_deleted: false } });
-    }
-
-    // 2. Match filters
-    let matchStage = {};
-    if (status) matchStage.status = status;
-    if (priority) matchStage.priority = priority;
-    
-    if (Object.keys(matchStage).length > 0) {
-      pipeline.push({ $match: matchStage });
+      pipeline.push({ $match: baseQuery });
     }
 
     // 3. Add priority weight for sorting
@@ -152,11 +152,11 @@ exports.getReports = async (req, res) => {
       primary_responder: r.primary_responder_info ? {
         _id: r.primary_responder_info._id,
         name: r.primary_responder_info.name
-      } : null,
+      } : (r.primary_responder ? { _id: r.primary_responder } : null),
       backup_responders: r.backup_responders_info ? r.backup_responders_info.map(u => ({
         _id: u._id,
         name: u.name
-      })) : []
+      })) : (r.backup_responders || [])
     }));
 
     res.json(transformed);
@@ -215,7 +215,14 @@ exports.respondToReport = async (req, res) => {
     });
     
     await report.save();
-    res.json(report);
+    
+    // Populate user info before returning to match getReports format
+    const populatedReport = await Report.findById(report._id)
+      .populate('primary_responder', 'name')
+      .populate('backup_responders', 'name')
+      .lean();
+      
+    res.json(populatedReport);
   } catch (error) {
     res.status(500).json({ message: 'Failed to respond to report' });
   }

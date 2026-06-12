@@ -31,9 +31,9 @@ export default function RescueCard({ report, onUpdate, user }) {
     if (!user) return toast.error('Please login to respond.');
     try {
       setLoading(true);
-      await api.post(`/reports/${report._id}/respond`);
+      const res = await api.post(`/reports/${report._id}/respond`);
       toast.success("You are now responding to this rescue!");
-      onUpdate();
+      onUpdate(res.data);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to respond');
     } finally {
@@ -44,8 +44,8 @@ export default function RescueCard({ report, onUpdate, user }) {
   const handleMonitor = async () => {
     if (!user) return toast.error('Please login to monitor.');
     try {
-      await api.post(`/reports/${report._id}/monitor`);
-      onUpdate();
+      const res = await api.post(`/reports/${report._id}/monitor`);
+      onUpdate({ ...report, monitors: res.data.monitors });
     } catch (err) {
       toast.error('Failed to toggle monitor');
     }

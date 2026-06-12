@@ -68,6 +68,7 @@ export default function Navbar() {
   const navLinks = [
     { to: '/', label: 'Home' },
     { to: '/feed', label: 'Live Feed' },
+    { to: '/gallery', label: 'Rescued' },
     { to: '/services', label: 'Services' },
     { to: '/lost-found', label: 'Lost & Found' },
     { to: '/heroes', label: 'Heroes' },

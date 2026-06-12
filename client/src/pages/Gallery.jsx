@@ -1,6 +1,10 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Camera, Heart } from 'lucide-react';
+import { Camera, CheckCircle } from 'lucide-react';
 import EmptyState from '../components/ui/EmptyState';
+import api from '../utils/api';
+import RescueCard from '../components/report/RescueCard';
+import { useAuth } from '../hooks/useAuth';
 
 const fadeInUp = {
   initial: { opacity: 0, y: 30 },
@@ -9,19 +13,25 @@ const fadeInUp = {
   transition: { duration: 0.6 },
 };
 
-const rescueStories = [
-  { title: 'Rescued from highway', color: 'from-amber-400 to-orange-500', emoji: '🚗' },
-  { title: 'After surgery recovery', color: 'from-emerald-400 to-green-500', emoji: '💚' },
-  { title: 'Found a forever home', color: 'from-blue-400 to-indigo-500', emoji: '🏠' },
-  { title: 'Feeding drive — 50 dogs', color: 'from-pink-400 to-rose-500', emoji: '🍽️' },
-  { title: 'Vaccination camp', color: 'from-purple-400 to-violet-500', emoji: '💉' },
-  { title: 'Happy adoption day', color: 'from-amber-400 to-yellow-500', emoji: '🎉' },
-  { title: 'Community volunteer meet', color: 'from-teal-400 to-cyan-500', emoji: '🤝' },
-  { title: 'Shelter renovation', color: 'from-red-400 to-rose-500', emoji: '🏗️' },
-  { title: 'Night rescue mission', color: 'from-slate-500 to-gray-600', emoji: '🌙' },
-];
-
 export default function Gallery() {
+  const [safeReports, setSafeReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    const fetchSafeReports = async () => {
+      try {
+        const { data } = await api.get('/reports?status=safe');
+        setSafeReports(data);
+      } catch (err) {
+        console.error('Failed to fetch safe reports', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSafeReports();
+  }, []);
+
   return (
     <div className="min-h-screen">
       <section className="page-header">
@@ -38,23 +48,19 @@ export default function Gallery() {
 
       <section className="page-content">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-            {rescueStories.map((item, i) => (
-              <motion.div
-                key={i}
-                {...fadeInUp}
-                className="group relative aspect-[4/3] rounded-2xl overflow-hidden cursor-pointer"
-              >
-                <div className={`absolute inset-0 bg-gradient-to-br ${item.color} opacity-85`} />
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 sm:gap-3 p-4 sm:p-6 text-center">
-                  <span className="text-2xl sm:text-3xl group-hover:scale-110 transition-transform">{item.emoji}</span>
-                  <p className="text-white font-bold text-sm sm:text-lg leading-tight">{item.title}</p>
-                  <p className="text-white/60 text-[10px] sm:text-xs">Photo coming soon</p>
+          {loading ? (
+            <div className="flex justify-center p-8 text-text-light">Loading rescued animals...</div>
+          ) : safeReports.length === 0 ? (
+            <EmptyState preset="gallery" />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {safeReports.map((report) => (
+                <div key={report._id}>
+                  <RescueCard report={report} onUpdate={() => {}} user={user} />
                 </div>
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
-              </motion.div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           <div className="mt-12 text-center">
             <p className="text-sm text-text-light">
