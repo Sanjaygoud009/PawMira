@@ -33,7 +33,7 @@ const staggerContainer = {
 
 function Hero() {
   return (
-    <section className="relative min-h-[95vh] flex items-center overflow-hidden bg-[#0A0F1C] pt-[80px]">
+    <section className="relative min-h-[95vh] flex items-center overflow-hidden bg-[#0A0F1C]">
       {/* Background Image with dimming and blur effects */}
       <div
         className="absolute inset-0 z-0"
