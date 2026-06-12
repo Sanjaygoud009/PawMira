@@ -18,7 +18,7 @@ export default function LoadingSpinner({ size = 'md', className = '' }) {
 export function PageLoader() {
   return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
-      <img src="/logo.png" alt="PawMira" className="h-16 w-16 rounded-xl animate-pulse" />
+      <img src="/logo.webp" alt="PawMira" className="h-16 w-16 rounded-xl animate-pulse" />
       <LoadingSpinner size="lg" />
       <p className="text-text-light text-sm font-medium">Loading...</p>
     </div>

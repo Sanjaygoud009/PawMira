@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import api from '../utils/api';
 import {
   AlertTriangle,
   Camera,
@@ -13,29 +15,30 @@ import {
   ArrowRight,
   ChevronRight,
   Sparkles,
+  Zap
 } from 'lucide-react';
 
 const fadeInUp = {
-  initial: { opacity: 0, y: 30 },
+  initial: { opacity: 0, y: 40 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true, margin: '-50px' },
-  transition: { duration: 0.6 },
+  transition: { duration: 0.7, type: 'spring', stiffness: 100, damping: 20 },
 };
 
 const staggerContainer = {
   initial: {},
-  whileInView: { transition: { staggerChildren: 0.1 } },
-  viewport: { once: true },
+  whileInView: { transition: { staggerChildren: 0.15, delayChildren: 0.1 } },
+  viewport: { once: true, margin: '-50px' },
 };
 
 function Hero() {
   return (
-    <section className="relative min-h-[95vh] flex items-center overflow-hidden bg-[#0A0F1C]">
+    <section className="relative min-h-[95vh] flex items-center overflow-hidden bg-[#0A0F1C] pt-[80px]">
       {/* Background Image with dimming and blur effects */}
       <div
         className="absolute inset-0 z-0"
         style={{
-          backgroundImage: "url('/background_image.png')",
+          backgroundImage: "url('/background_image.webp')",
           backgroundSize: 'cover',
           backgroundPosition: 'center right 20%'
         }}
@@ -79,7 +82,7 @@ function Hero() {
       </motion.div>
 
       {/* Main Content */}
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pt-20 pb-10 flex flex-col justify-center">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full pt-32 pb-16 flex flex-col justify-center">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -149,26 +152,55 @@ function Hero() {
 }
 
 function Stats() {
+  const [statsData, setStatsData] = useState({
+    dogsRescued: '3+',
+    volunteers: '2+',
+    activeCases: 'Open',
+    reportTime: '<30s'
+  });
+
+  useEffect(() => {
+    api.get('/reports/stats')
+      .then(({ data }) => {
+        setStatsData({
+          dogsRescued: `${data.dogsRescued}+`,
+          volunteers: `${data.volunteers}+`,
+          activeCases: `${data.activeCases}`,
+          reportTime: '<30s'
+        });
+      })
+      .catch(err => console.error('Failed to load stats', err));
+  }, []);
+
   const stats = [
-    { icon: Heart, value: '3', label: 'Dogs Rescued', color: 'text-success' },
-    { icon: Users, value: '2+', label: 'Volunteers', color: 'text-primary' },
-    { icon: Building2, value: 'Open', label: 'NGO Ready', color: 'text-blue-400' },
-    { icon: Clock, value: '<30s', label: 'Report Time', color: 'text-amber-400' },
+    { icon: Heart, value: statsData.dogsRescued, label: 'Dogs Rescued', color: 'text-success', bg: 'bg-success/10' },
+    { icon: Users, value: statsData.volunteers, label: 'Volunteers', color: 'text-primary', bg: 'bg-primary/10' },
+    { icon: Building2, value: statsData.activeCases, label: 'Active Cases', color: 'text-blue-500', bg: 'bg-blue-500/10' },
+    { icon: Zap, value: statsData.reportTime, label: 'Report Time', color: 'text-amber-500', bg: 'bg-amber-500/10' },
   ];
 
   return (
-    <section className="py-16 bg-white border-y border-neutral">
+    <section className="relative pb-16 pt-8 bg-background z-20 -mt-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div {...staggerContainer} className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <motion.div 
+          variants={staggerContainer}
+          initial="initial"
+          whileInView="whileInView"
+          className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6"
+        >
           {stats.map((stat, i) => (
             <motion.div
               key={i}
-              {...fadeInUp}
-              className="rounded-2xl border border-neutral/70 bg-background/60 px-4 py-6 text-center space-y-2 shadow-sm"
+              variants={fadeInUp}
+              whileHover={{ y: -8, scale: 1.02 }}
+              className="relative overflow-hidden rounded-[2rem] border border-neutral/50 bg-white p-8 text-center shadow-lg hover:shadow-2xl transition-all duration-300 group"
             >
-              <stat.icon size={28} className={`mx-auto ${stat.color}`} />
-              <p className="text-3xl sm:text-4xl font-black text-dark">{stat.value}</p>
-              <p className="text-sm text-text-light font-medium">{stat.label}</p>
+              <div className="absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br from-transparent to-neutral-dark/5 rounded-full transition-transform group-hover:scale-150 duration-500" />
+              <div className={`mx-auto w-14 h-14 rounded-2xl flex items-center justify-center ${stat.bg} mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                <stat.icon size={28} className={stat.color} />
+              </div>
+              <p className="text-4xl sm:text-5xl font-black text-dark mb-1 tracking-tight">{stat.value}</p>
+              <p className="text-sm font-bold text-text-light uppercase tracking-wider">{stat.label}</p>
             </motion.div>
           ))}
         </motion.div>
@@ -181,68 +213,78 @@ function HowItWorks() {
   const steps = [
     {
       icon: Camera,
-      title: 'Report',
-      description: 'Snap a photo, share your location, and describe the situation. Takes under 30 seconds.',
-      color: 'from-orange-500 to-amber-500',
+      title: 'Report Quickly',
+      description: 'Snap a photo, share your live location, and describe the situation. No account required.',
+      color: 'from-orange-500 to-primary',
     },
     {
       icon: Shield,
-      title: 'Respond',
-      description: 'Nearby volunteers and NGOs get notified instantly. The closest available responder accepts the case.',
-      color: 'from-blue-500 to-indigo-500',
+      title: 'Smart Dispatch',
+      description: 'Our AI routes the emergency to the closest available volunteers and NGOs instantly.',
+      color: 'from-blue-500 to-indigo-600',
     },
     {
       icon: Heart,
-      title: 'Rescue',
-      description: 'The dog gets the medical attention and care it needs. Track progress in real-time.',
-      color: 'from-emerald-500 to-green-500',
+      title: 'Track Rescue',
+      description: 'Watch the rescue unfold in real-time. Follow the journey until the animal is marked safe.',
+      color: 'from-emerald-500 to-teal-500',
     },
   ];
 
   return (
-    <section className="py-20 sm:py-28 bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div {...fadeInUp} className="text-center mb-16">
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 bg-primary/10 text-primary text-sm font-semibold rounded-full mb-4">
-            <Sparkles size={14} />
-            Simple 3-Step Process
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-black text-dark">
-            How It Works
-          </h2>
-          <p className="mt-4 text-text-light max-w-2xl mx-auto">
-            We've made reporting as simple as possible. No registration needed — just report and save a life.
-          </p>
+    <section className="py-24 sm:py-32 bg-white relative overflow-hidden">
+      {/* Decorative background grid */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.03)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <motion.div 
+          variants={staggerContainer}
+          initial="initial"
+          whileInView="whileInView"
+          className="text-center mb-20"
+        >
+          <motion.div variants={fadeInUp} className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary text-sm font-bold uppercase tracking-wider rounded-full mb-6">
+            <Sparkles size={16} />
+            Seamless Process
+          </motion.div>
+          <motion.h2 variants={fadeInUp} className="text-4xl sm:text-5xl font-black text-dark tracking-tight">
+            How PawMira Works
+          </motion.h2>
+          <motion.p variants={fadeInUp} className="mt-6 text-lg text-text-light max-w-2xl mx-auto font-medium">
+            We've eliminated the friction in animal rescue. Our platform connects a person who cares with a person who can help, instantly.
+          </motion.p>
         </motion.div>
 
         <motion.div
-          {...staggerContainer}
-          className="grid md:grid-cols-3 gap-8"
+          variants={staggerContainer}
+          initial="initial"
+          whileInView="whileInView"
+          className="grid md:grid-cols-3 gap-8 relative"
         >
+          {/* Connecting Line for Desktop */}
+          <div className="hidden md:block absolute top-1/2 left-[15%] right-[15%] h-1 bg-gradient-to-r from-primary/20 via-indigo-500/20 to-emerald-500/20 -translate-y-1/2 z-0" />
+
           {steps.map((step, i) => (
             <motion.div
               key={i}
-              {...fadeInUp}
-              className="relative group"
+              variants={fadeInUp}
+              className="relative group z-10"
             >
-              <div className="bg-white rounded-3xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 border border-neutral/50 hover:border-primary/20 hover:-translate-y-1">
-                <div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br ${step.color} mb-6`}>
-                  <step.icon size={24} className="text-white" />
+              <div className="bg-white rounded-[2.5rem] p-10 shadow-[0_10px_40px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(0,0,0,0.08)] transition-all duration-500 border border-neutral/60 hover:-translate-y-2 text-center h-full">
+                
+                <div className={`mx-auto w-20 h-20 rounded-3xl bg-gradient-to-br ${step.color} p-0.5 mb-8 shadow-xl group-hover:scale-110 transition-transform duration-500`}>
+                  <div className="w-full h-full bg-white rounded-[1.4rem] flex items-center justify-center">
+                    <step.icon size={32} className="text-dark" />
+                  </div>
                 </div>
 
-                <div className="absolute top-6 right-8 text-6xl font-black text-neutral/30">
-                  {i + 1}
+                <div className="absolute top-6 left-6 text-7xl font-black text-neutral-dark/10 group-hover:text-neutral-dark/20 transition-colors pointer-events-none select-none">
+                  0{i + 1}
                 </div>
 
-                <h3 className="text-xl font-bold text-dark mb-3">{step.title}</h3>
-                <p className="text-text-light text-sm leading-relaxed">{step.description}</p>
+                <h3 className="text-2xl font-black text-dark mb-4 tracking-tight">{step.title}</h3>
+                <p className="text-text-light text-base font-medium leading-relaxed">{step.description}</p>
               </div>
-
-              {i < 2 && (
-                <div className="hidden md:flex absolute top-1/2 -right-4 z-10">
-                  <ChevronRight size={24} className="text-neutral-dark" />
-                </div>
-              )}
             </motion.div>
           ))}
         </motion.div>
@@ -253,35 +295,45 @@ function HowItWorks() {
 
 function CTABanner() {
   return (
-    <section className="py-20 gradient-dark relative overflow-hidden">
-      <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <motion.div {...fadeInUp} className="space-y-8">
-          <h2 className="text-3xl sm:text-5xl font-black text-white">
+    <section className="relative py-24 sm:py-32 overflow-hidden bg-dark">
+      {/* Animated Gradient Background */}
+      <div className="absolute inset-0 opacity-40">
+        <div className="absolute -top-[50%] -left-[10%] w-[70%] h-[150%] bg-primary/40 rounded-full blur-[120px] animate-[pulse_8s_infinite_alternate]" />
+        <div className="absolute top-[20%] -right-[20%] w-[60%] h-[120%] bg-orange-600/30 rounded-full blur-[100px] animate-[pulse_10s_infinite_alternate_reverse]" />
+      </div>
+
+      <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center z-10">
+        <motion.div 
+          variants={staggerContainer}
+          initial="initial"
+          whileInView="whileInView"
+          className="space-y-10"
+        >
+          <motion.h2 variants={fadeInUp} className="text-4xl sm:text-6xl font-black text-white tracking-tight leading-tight">
             Every Second{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary-light">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-amber-300">
               Counts
             </span>
-          </h2>
-          <p className="text-lg text-neutral-dark max-w-xl mx-auto">
-            A dog is waiting for help right now. Your report could be the difference between life and death.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
+          </motion.h2>
+          <motion.p variants={fadeInUp} className="text-xl sm:text-2xl text-white/80 max-w-3xl mx-auto font-medium">
+            An animal is waiting for help right now. Your report could be the difference between life and death.
+          </motion.p>
+          <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row justify-center gap-6 pt-4">
             <Link
               to="/report"
-              className="flex items-center justify-center gap-2 px-8 py-4 bg-primary text-white font-bold rounded-2xl text-lg hover:bg-primary-dark transition-all shadow-xl shadow-primary/30"
+              className="flex items-center justify-center gap-3 px-10 py-5 bg-white text-primary font-black rounded-2xl text-lg hover:bg-neutral-light transition-all shadow-[0_0_40px_rgba(255,255,255,0.2)] hover:scale-105"
             >
-              <AlertTriangle size={20} />
-              Report Now
-              <ArrowRight size={18} />
+              <AlertTriangle size={22} />
+              Report Emergency Now
             </Link>
             <Link
               to="/volunteer"
-              className="flex items-center justify-center gap-2 px-8 py-4 bg-white/10 text-white font-semibold rounded-2xl text-lg hover:bg-white/20 transition-all border border-white/10"
+              className="flex items-center justify-center gap-3 px-10 py-5 bg-white/10 backdrop-blur-md text-white font-bold rounded-2xl text-lg hover:bg-white/20 transition-all border border-white/20 hover:scale-105"
             >
-              <Heart size={20} />
-              Join as Volunteer
+              <Heart size={22} />
+              Join as a Volunteer
             </Link>
-          </div>
+          </motion.div>
         </motion.div>
       </div>
     </section>
@@ -290,11 +342,11 @@ function CTABanner() {
 
 export default function Home() {
   return (
-    <>
+    <div className="bg-background">
       <Hero />
       <Stats />
       <HowItWorks />
       <CTABanner />
-    </>
+    </div>
   );
 }

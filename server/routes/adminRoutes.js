@@ -9,7 +9,8 @@ const {
   approveFoundPet,
   getMessages,
   sendMessage,
-  editMessage
+  editMessage,
+  deleteUser
 } = require('../controllers/adminController');
 
 // All routes require authentication and 'admin' role
@@ -21,6 +22,7 @@ router.get('/stats', getStats);
 
 // User Management
 router.get('/users', getUsers);
+router.delete('/users/:id', deleteUser);
 
 // Moderation
 router.delete('/reports/:id', moderateReport);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import { Navigation, MapPin } from 'lucide-react';
+import { Navigation, MapPin, Maximize2, Minimize2 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -52,6 +52,7 @@ export default function LocationPicker({ onLocationSelect, disabled }) {
   const [position, setPosition] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isExpanded, setIsExpanded] = useState(false);
   const defaultCenter = [17.385, 78.4867]; // Hyderabad
 
   const handlePositionChange = useCallback(
@@ -95,22 +96,32 @@ export default function LocationPicker({ onLocationSelect, disabled }) {
           <p className="text-sm font-semibold text-dark">Adjust Location</p>
           <p className="text-xs text-text-light mt-0.5">Drag the pin or tap the map</p>
         </div>
-        <button
-          type="button"
-          onClick={detectLocation}
-          disabled={disabled || loading}
-          className="flex items-center gap-1.5 px-4 py-2 bg-primary/10 text-primary rounded-xl font-bold text-xs hover:bg-primary/20 transition-colors disabled:opacity-50 whitespace-nowrap"
-        >
-          <Navigation size={14} className={loading ? 'animate-spin' : ''} />
-          {loading ? 'Detecting...' : 'Auto Detect'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center justify-center p-2 bg-neutral/20 text-dark rounded-xl hover:bg-neutral/40 transition-colors"
+            title={isExpanded ? "Collapse Map" : "Expand Map"}
+          >
+            {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </button>
+          <button
+            type="button"
+            onClick={detectLocation}
+            disabled={disabled || loading}
+            className="flex items-center gap-1.5 px-4 py-2 bg-primary/10 text-primary rounded-xl font-bold text-xs hover:bg-primary/20 transition-colors disabled:opacity-50 whitespace-nowrap"
+          >
+            <Navigation size={14} className={loading ? 'animate-spin' : ''} />
+            {loading ? 'Detecting...' : 'Auto Detect'}
+          </button>
+        </div>
       </div>
 
       {error && (
         <p className="text-xs text-warning">{error}</p>
       )}
 
-      <div className="h-[280px] rounded-2xl overflow-hidden border border-neutral shadow-sm relative z-0">
+      <div className={`${isExpanded ? 'h-[400px] sm:h-[450px]' : 'h-[200px]'} transition-all duration-300 rounded-2xl overflow-hidden border border-neutral shadow-sm relative z-0`}>
         <MapContainer
           center={position || defaultCenter}
           zoom={position ? 15 : 12}

@@ -12,11 +12,22 @@ const Timeline = ({ events }) => {
       case 'accepted':
         return <UserPlus className="w-5 h-5 text-primary" />;
       case 'treatment':
-        return <ShieldCheck className="w-5 h-5 text-warning" />;
+        return (
+          <div className="relative">
+            <ShieldCheck className="w-5 h-5 text-warning" />
+            <span className="absolute -top-2 -right-2 text-[10px] animate-bounce">❤️</span>
+          </div>
+        );
       case 'safe':
-        return <CheckCircle className="w-5 h-5 text-success" />;
+        return (
+          <div className="relative">
+            <CheckCircle className="w-5 h-5 text-success" />
+            <span className="absolute -top-2 -right-2 text-[12px] animate-bounce" style={{ animationDelay: '0.1s' }}>🐶</span>
+            <span className="absolute -top-3 left-0 text-[10px] animate-bounce" style={{ animationDelay: '0.3s' }}>❤️</span>
+          </div>
+        );
       case 'escalated':
-        return <AlertTriangle className="w-5 h-5 text-error" />;
+        return <AlertTriangle className="w-5 h-5 text-error animate-pulse" />;
       default:
         return <Clock className="w-5 h-5 text-neutral" />;
     }
@@ -33,19 +44,25 @@ const Timeline = ({ events }) => {
   };
 
   return (
-    <div className="relative pl-4 border-l-2 border-neutral-dark space-y-6 my-4">
+    <div className="space-y-0 my-2">
       {events.map((event, index) => {
         const isLast = index === events.length - 1;
         const Icon = getIcon(event.event_type);
         return (
-          <div key={index} className="relative">
-            {/* Timeline dot/icon */}
-            <div className="absolute -left-[26px] top-0.5 bg-white p-1 rounded-full border border-neutral-dark z-10">
-              {Icon}
+          <div key={index} className="relative flex items-start gap-3">
+            {/* Icon Column */}
+            <div className="flex flex-col items-center">
+              <div className="relative z-10 bg-white p-1 rounded-full border border-neutral-dark shrink-0">
+                {Icon}
+              </div>
+              {/* Connecting line */}
+              {!isLast && (
+                <div className={`w-0.5 h-full min-h-[2rem] my-1 ${getLineColor(event.event_type)}`} />
+              )}
             </div>
             
-            {/* Content */}
-            <div className="ml-4 flex flex-col">
+            {/* Content Column */}
+            <div className="flex flex-col pb-4 pt-1">
               <span className="text-sm font-semibold text-text-dark capitalize">
                 {event.event_type}
               </span>
@@ -57,13 +74,6 @@ const Timeline = ({ events }) => {
                 {event.created_at ? formatDistanceToNow(new Date(event.created_at), { addSuffix: true }) : 'Unknown time'}
               </span>
             </div>
-            
-            {/* Connecting line overrides */}
-            {!isLast && (
-              <div 
-                className={`absolute -left-[17px] top-8 bottom-[-24px] w-0.5 ${getLineColor(event.event_type)}`} 
-              />
-            )}
           </div>
         );
       })}

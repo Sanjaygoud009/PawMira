@@ -1,6 +1,9 @@
 const Report = require('../models/Report');
+const User = require('../models/User');
 const mongoose = require('mongoose');
 const { awardHearts } = require('../utils/gamification');
+const { validateAnimalImage } = require('../utils/imageValidator');
+const cloudinary = require('../config/cloudinary');
 
 // @desc    Create a new report
 // @route   POST /api/reports
@@ -10,6 +13,23 @@ exports.createReport = async (req, res) => {
 
     if (!reporter_phone || !latitude || !longitude || !issue_type) {
       return res.status(400).json({ message: 'Phone, location, and issue type are required' });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({ message: 'An image of the animal is required' });
+    }
+
+    // AI Image Validation
+    const validation = await validateAnimalImage(req.file.path);
+    if (!validation.isAnimal) {
+      // Delete the non-animal image from Cloudinary
+      if (req.file.filename) {
+        await cloudinary.uploader.destroy(req.file.filename).catch(() => {});
+      }
+      return res.status(400).json({ 
+        message: 'Our AI could not detect an animal in this image.',
+        reason: validation.reason 
+      });
     }
 
     const PRIORITY_MAP = {
@@ -36,7 +56,7 @@ exports.createReport = async (req, res) => {
       issue_type,
       priority: calculatedPriority,
       source: 'web',
-      response_deadline: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes deadline
+      response_deadline: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes deadline
       history: [{ status: 'open', updated_at: new Date() }],
       timeline: [{ event_type: 'created', description: 'Emergency reported by community.', created_at: new Date() }]
     };
@@ -44,10 +64,7 @@ exports.createReport = async (req, res) => {
     if (req.user) {
       reportData.reporter_id = req.user._id;
     }
-
-    if (req.file) {
-      reportData.image_url = req.file.path;
-    }
+    reportData.image_url = req.file.path;
 
     const report = await Report.create(reportData);
 
@@ -394,4 +411,23 @@ exports.deleteReport = async (req, res) => {
   report.deleted_at = new Date();
   await report.save();
   res.json({ message: 'Deleted' });
+};
+
+// @desc    Get public stats for homepage
+// @route   GET /api/reports/stats
+exports.getPublicStats = async (req, res) => {
+  try {
+    const dogsRescued = await Report.countDocuments({ status: 'safe', is_deleted: false });
+    const activeCases = await Report.countDocuments({ status: { $ne: 'safe' }, is_deleted: false });
+    const volunteers = await User.countDocuments({}); 
+
+    res.json({
+      dogsRescued: dogsRescued || 2, // Default fallback if 0
+      volunteers: volunteers || 2,
+      activeCases: activeCases || 0,
+    });
+  } catch (error) {
+    console.error('Stats error:', error);
+    res.status(500).json({ message: 'Error fetching stats' });
+  }
 };

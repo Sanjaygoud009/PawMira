@@ -3,6 +3,7 @@ const cloudinary = require('../config/cloudinary');
 const Report = require('../models/Report');
 const LostPet = require('../models/LostPet');
 const FoundPet = require('../models/FoundPet');
+const User = require('../models/User');
 const CleanupLog = require('../models/CleanupLog');
 
 // Helper to extract Cloudinary public_id from URL
@@ -106,6 +107,18 @@ const runCleanup = async () => {
       await FoundPet.findByIdAndDelete(pet._id);
     }
     console.log(`Cleaned up ${oldFoundPets.length} old found pets.`);
+
+    // 5. Delete Unverified Users older than 24 hours
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const unverifiedUsers = await User.find({
+      isVerified: false,
+      created_at: { $lte: oneDayAgo }
+    });
+
+    for (const user of unverifiedUsers) {
+      await User.findByIdAndDelete(user._id);
+    }
+    console.log(`Cleaned up ${unverifiedUsers.length} unverified users.`);
 
   } catch (error) {
     console.error('Error during cleanup service:', error);

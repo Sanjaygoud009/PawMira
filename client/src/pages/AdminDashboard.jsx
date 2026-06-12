@@ -59,6 +59,17 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDeleteUser = async (userId) => {
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
+    try {
+      await api.delete(`/admin/users/${userId}`);
+      toast.success('User deleted successfully');
+      setUsers(prev => prev.filter(u => u._id !== userId));
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete user');
+    }
+  };
+
   const fetchContentForModeration = async () => {
     try {
       // Reusing public routes but they return everything if we fetch them. Actually we can just fetch the active ones.
@@ -211,6 +222,7 @@ export default function AdminDashboard() {
                       <th className="px-4 py-3 rounded-l-lg">Name</th>
                       <th className="px-4 py-3">Email</th>
                       <th className="px-4 py-3">Role</th>
+                      <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Joined</th>
                       <th className="px-4 py-3 rounded-r-lg">Action</th>
                     </tr>
@@ -225,9 +237,19 @@ export default function AdminDashboard() {
                             {u.role}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-text-light">{format(new Date(u.created_at), 'MMM d, yyyy')}</td>
                         <td className="px-4 py-3">
+                          {u.isVerified ? (
+                            <span className="text-xs font-bold text-success bg-success/10 px-2.5 py-1 rounded-full">Verified</span>
+                          ) : (
+                            <span className="text-xs font-bold text-warning bg-warning/10 px-2.5 py-1 rounded-full">Unverified</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-text-light">{format(new Date(u.created_at), 'MMM d, yyyy')}</td>
+                        <td className="px-4 py-3 flex gap-3">
                           <button onClick={() => { setActiveTab('messages'); setSelectedUser(u); }} className="text-primary hover:underline text-xs font-semibold">Message</button>
+                          {!u.isVerified && (
+                            <button onClick={() => handleDeleteUser(u._id)} className="text-error hover:underline text-xs font-semibold">Delete</button>
+                          )}
                         </td>
                       </tr>
                     ))}

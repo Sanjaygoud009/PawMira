@@ -133,7 +133,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 connectDB().then(() => {
-  httpServer.listen(PORT, () => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`[SERVER_STARTED] PawMira API & Socket.io running on port ${PORT}`);
     
     // Start automated daily cleanup cron job

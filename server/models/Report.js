@@ -92,7 +92,7 @@ const reportSchema = new mongoose.Schema({
     {
       flag_type: {
         type: String,
-        enum: ['still_needs_help', 'completed']
+        enum: ['still_needs_help', 'completed', 'fake', 'spam']
       },
       user_id: {
         type: mongoose.Schema.Types.ObjectId,

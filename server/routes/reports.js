@@ -10,7 +10,8 @@ const {
   addReportUpdate,
   toggleMonitor,
   addCommunityFlag,
-  resolveReport
+  resolveReport,
+  getPublicStats
 } = require('../controllers/reportController');
 const { protect, authorize, optionalAuth } = require('../middleware/auth');
 const upload = require('../middleware/upload');
@@ -21,6 +22,9 @@ router.post('/', optionalAuth, reportLimiter, upload.single('image'), createRepo
 
 // Public — view reports (for the feed)
 router.get('/', getReports);
+
+// Public — get stats for homepage
+router.get('/stats', getPublicStats);
 
 // Admin only — view soft-deleted reports
 router.get('/deleted', protect, authorize('admin'), getDeletedReports);

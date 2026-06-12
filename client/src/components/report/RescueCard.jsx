@@ -52,7 +52,7 @@ export default function RescueCard({ report, onUpdate, user }) {
   };
 
   const handleShare = async () => {
-    const shareUrl = `${window.location.origin}/feed`;
+    const shareUrl = `${window.location.origin}/feed?highlight=${report._id}`;
     const shareData = {
       title: `PawMira Rescue: ${report.issue_type.replace('_', ' ')}`,
       text: `Urgent rescue needed at ${report.address || 'Nearby'}. Severity: ${report.priority}. Help save a life!`,
@@ -145,23 +145,27 @@ export default function RescueCard({ report, onUpdate, user }) {
             <span>Reported {timeAgo} • <span className="font-medium text-text-dark">Last verified {verifiedAgo}</span></span>
           </div>
           <div className="flex flex-col gap-2 pt-2 border-t border-neutral/50">
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1.5 text-primary font-medium">
-                <Eye size={14} />
-                <span>{report.monitors?.length || 0} monitoring</span>
+            {report.status !== 'safe' && (
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 text-primary font-medium">
+                  <Eye size={14} />
+                  <span>{report.monitors?.length || 0} monitoring</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-text-light font-medium">
+                  <Activity size={13} className="text-success shrink-0" />
+                  <span>
+                    Responders: <strong className="text-text-dark">{totalResponders}/{maxResponders}</strong>
+                    {remainingSpots > 0 ? ` (${remainingSpots} left)` : ' (Full)'}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5 text-text-light font-medium">
-                <Activity size={13} className="text-success shrink-0" />
-                <span>
-                  Responders: <strong className="text-text-dark">{totalResponders}/{maxResponders}</strong>
-                  {remainingSpots > 0 ? ` (${remainingSpots} left)` : ' (Full)'}
-                </span>
-              </div>
-            </div>
+            )}
 
             {totalResponders > 0 && (
               <div className="flex flex-wrap gap-1.5 items-center mt-1">
-                <span className="text-[10px] uppercase tracking-wider text-text-light font-bold">Crew:</span>
+                <span className="text-[10px] uppercase tracking-wider text-text-light font-bold">
+                  {report.status === 'safe' ? 'Rescued By:' : 'Crew:'}
+                </span>
                 {report.primary_responder && (
                   <span className="inline-flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full text-[10px] font-semibold">
                     <Crown size={11} /> {report.primary_responder.name} (Lead)
@@ -180,7 +184,9 @@ export default function RescueCard({ report, onUpdate, user }) {
           {(report.timeline && report.timeline.length > 0) ? (
             <div className="pt-3 mt-3 border-t border-neutral/50">
               <span className="text-[10px] uppercase tracking-wider text-text-light font-bold mb-2 block">Rescue Progress:</span>
-              <Timeline events={report.timeline} />
+              <div className="max-h-40 overflow-y-auto pr-2 no-scrollbar">
+                <Timeline events={report.timeline} />
+              </div>
             </div>
           ) : (
             report.history && report.history.length > 0 && (
@@ -255,7 +261,7 @@ export default function RescueCard({ report, onUpdate, user }) {
             </button>
           )}
 
-          {canChat && (
+          {canChat && report.status !== 'safe' && (
             <button 
               onClick={() => setIsChatOpen(true)}
               className="p-2 rounded-xl border border-primary/20 text-primary hover:bg-primary/10 transition-colors shadow-sm"
@@ -266,14 +272,16 @@ export default function RescueCard({ report, onUpdate, user }) {
             </button>
           )}
 
-          <button 
-            onClick={handleMonitor}
-            className={`p-2 rounded-xl border transition-colors ${isMonitoring ? 'bg-primary/10 border-primary/20 text-primary' : 'border-neutral text-text-light hover:bg-neutral'}`}
-            title="Monitor this rescue"
-            aria-label="Monitor this rescue"
-          >
-            <Eye size={18} />
-          </button>
+          {report.status !== 'safe' && (
+            <button 
+              onClick={handleMonitor}
+              className={`p-2 rounded-xl border transition-colors ${isMonitoring ? 'bg-primary/10 border-primary/20 text-primary' : 'border-neutral text-text-light hover:bg-neutral'}`}
+              title="Monitor this rescue"
+              aria-label="Monitor this rescue"
+            >
+              <Eye size={18} />
+            </button>
+          )}
 
           <button 
             onClick={handleShare}

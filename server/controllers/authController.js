@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const { validateEmail } = require('../utils/emailValidator');
 
 // Create transporter using Gmail
 const createTransporter = () => {
@@ -24,6 +25,12 @@ const generateToken = (id) => {
 exports.register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
+
+    // Validate email format and block disposable emails
+    const emailCheck = validateEmail(email);
+    if (!emailCheck.valid) {
+      return res.status(400).json({ message: emailCheck.reason });
+    }
 
     let user = await User.findOne({ email });
 

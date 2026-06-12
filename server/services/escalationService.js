@@ -36,7 +36,7 @@ const runEscalation = async () => {
         
         if (notifications.length) await Notification.insertMany(notifications);
         
-        report.response_deadline = new Date(now.getTime() + 10 * 60000); // Wait 10 mins before Level 2
+        report.response_deadline = new Date(now.getTime() + 60 * 60000); // Wait 60 mins before Level 2
         
         report.timeline.push({
           event_type: 'escalated',
@@ -52,14 +52,14 @@ const runEscalation = async () => {
           user_id: n._id,
           type: 'escalation',
           title: '🆘 NGO Support Needed',
-          message: `An emergency rescue has been unattended for 20 mins. Please respond!`,
+          message: `An emergency rescue has been unattended for 60 mins. Please respond!`,
           reference_id: report._id,
           reference_model: 'Report'
         }));
         
         if (notifications.length) await Notification.insertMany(notifications);
         
-        report.response_deadline = new Date(now.getTime() + 10 * 60000); // Wait 10 mins before Level 3
+        report.response_deadline = new Date(now.getTime() + 30 * 60000); // Wait 30 mins before Level 3
         
         report.timeline.push({
           event_type: 'escalated',
@@ -77,7 +77,7 @@ const runEscalation = async () => {
           user_id: a._id,
           type: 'system',
           title: '🔥 CRITICAL ESCALATION',
-          message: `Report ${report._id} has been unattended for 30 mins! Immediate action required.`,
+          message: `Report ${report._id} has been unattended for 2 hours! Immediate action required.`,
           reference_id: report._id,
           reference_model: 'Report'
         }));

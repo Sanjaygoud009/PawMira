@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { useSearchParams } from 'react-router-dom';
 import api from '../utils/api';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -122,6 +123,8 @@ export default function RescueFeed() {
   const [locationStatus, setLocationStatus] = useState('checking');
   const [resolveReportId, setResolveReportId] = useState(null);
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const highlightId = searchParams.get('highlight');
 
   const fetchReports = useCallback(async (lat, lng) => {
     try {
@@ -163,6 +166,23 @@ export default function RescueFeed() {
     window.addEventListener('openResolveModal', handleOpenResolve);
     return () => window.removeEventListener('openResolveModal', handleOpenResolve);
   }, []);
+
+  useEffect(() => {
+    if (highlightId && reports.length > 0 && view === 'list') {
+      setTimeout(() => {
+        const element = document.getElementById(`report-${highlightId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.classList.add('ring-4', 'ring-primary', 'rounded-2xl', 'transition-all', 'duration-1000');
+          setTimeout(() => {
+            element.classList.remove('ring-4', 'ring-primary', 'transition-all', 'duration-1000');
+          }, 4000);
+        } else {
+          toast.error('The highlighted report is not currently visible in your feed. It may have been resolved, deleted, or is outside your current location radius.', { duration: 5000 });
+        }
+      }, 500); // small delay to let DOM paint
+    }
+  }, [highlightId, searchParams.get('t'), reports, view]);
 
   if (loading && reports.length === 0) {
     return (
