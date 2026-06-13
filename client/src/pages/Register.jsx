@@ -60,7 +60,7 @@ export default function Register() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-4xl flex rounded-3xl overflow-hidden shadow-xl border border-neutral/50"
+        className="w-full max-w-[840px] flex rounded-3xl overflow-hidden shadow-2xl border border-neutral/50"
       >
         {/* Left brand panel — desktop only */}
         <div className="hidden md:flex md:w-2/5 gradient-dark flex-col justify-center items-center p-10 text-center">
@@ -86,7 +86,7 @@ export default function Register() {
           </div>
 
         {step === 1 ? (
-          <form onSubmit={handleRegisterSubmit} className="space-y-5">
+          <form onSubmit={handleRegisterSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-dark mb-2">Full Name</label>
               <div className="relative">
@@ -96,7 +96,7 @@ export default function Register() {
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   placeholder="John Doe"
-                  className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-neutral text-sm bg-white focus:outline-none focus:border-primary transition-colors"
+                  className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-neutral text-sm bg-white focus:outline-none focus:border-primary transition-colors"
                   disabled={loading}
                 />
               </div>
@@ -111,7 +111,7 @@ export default function Register() {
                   value={form.email}
                   onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                   placeholder="you@example.com"
-                  className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-neutral text-sm bg-white focus:outline-none focus:border-primary transition-colors"
+                  className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-neutral text-sm bg-white focus:outline-none focus:border-primary transition-colors"
                   disabled={loading}
                 />
               </div>
@@ -126,7 +126,7 @@ export default function Register() {
                   value={form.password}
                   onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
                   placeholder="Min 6 characters"
-                  className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-neutral text-sm bg-white focus:outline-none focus:border-primary transition-colors"
+                  className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-neutral text-sm bg-white focus:outline-none focus:border-primary transition-colors"
                   disabled={loading}
                 />
               </div>
@@ -158,7 +158,7 @@ export default function Register() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3.5 bg-primary text-white font-bold rounded-2xl hover:bg-primary-dark transition-all shadow-lg shadow-primary/20 disabled:opacity-60"
+              className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-white font-bold rounded-2xl hover:bg-primary-dark transition-all shadow-lg shadow-primary/20 disabled:opacity-60"
             >
               {loading ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -176,7 +176,7 @@ export default function Register() {
             </p>
           </form>
         ) : (
-          <form onSubmit={handleOtpSubmit} className="space-y-5">
+          <form onSubmit={handleOtpSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-dark mb-2">One-Time Password (OTP)</label>
               <div className="relative">
@@ -186,7 +186,7 @@ export default function Register() {
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   placeholder="Enter 6-digit OTP"
-                  className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-neutral text-sm bg-white focus:outline-none focus:border-primary transition-colors text-center text-lg tracking-widest font-bold"
+                  className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-neutral text-sm bg-white focus:outline-none focus:border-primary transition-colors text-center text-lg tracking-widest font-bold"
                   disabled={loading}
                 />
               </div>
@@ -196,7 +196,7 @@ export default function Register() {
             <button
               type="submit"
               disabled={loading || otp.length !== 6}
-              className="w-full flex items-center justify-center gap-2 py-3.5 bg-primary text-white font-bold rounded-2xl hover:bg-primary-dark transition-all shadow-lg shadow-primary/20 disabled:opacity-60"
+              className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-white font-bold rounded-2xl hover:bg-primary-dark transition-all shadow-lg shadow-primary/20 disabled:opacity-60"
             >
               {loading ? (
                 <Loader2 size={18} className="animate-spin" />
