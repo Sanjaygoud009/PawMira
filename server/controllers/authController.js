@@ -58,9 +58,9 @@ exports.register = async (req, res) => {
     user.otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
     await user.save();
 
-    // Send email
+    // Send email asynchronously so it doesn't block the UI
     const transporter = createTransporter();
-    await transporter.sendMail({
+    transporter.sendMail({
       from: `"PawMira" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: `🐾 Verify Your PawMira Account`,
@@ -77,6 +77,8 @@ exports.register = async (req, res) => {
           <p>Best,<br/>The PawMira Team</p>
         </div>
       `,
+    }).catch(err => {
+      console.error(`[EMAIL_ERROR] Failed to send OTP to ${email}: ${err.message}`);
     });
 
     res.status(200).json({ message: 'OTP sent to email. Please verify.' });
