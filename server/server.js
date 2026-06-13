@@ -96,6 +96,15 @@ app.use(helmet());
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Trust proxy is required when deployed behind Render's load balancer
+// otherwise rate limiting applies globally to all users
+app.set('trust proxy', 1);
+
+// Health check (MUST be before rate limiter so Render health checks don't fail with 429)
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Rate limiting
 app.use('/api', generalLimiter);
 
@@ -110,11 +119,6 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/rescue-messages', rescueMessageRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/leaderboards', leaderboardRoutes);
-
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
 
 // 404 handler
 app.use((req, res) => {
