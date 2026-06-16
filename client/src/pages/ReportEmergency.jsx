@@ -196,7 +196,12 @@ export default function ReportEmergency() {
       toast.success('Report submitted successfully!');
       setTimeout(() => navigate('/'), 3000);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Something went wrong. Try again.');
+      const errorData = err.response?.data;
+      let errorMessage = errorData?.message || 'Something went wrong. Try again.';
+      if (errorData?.reason) {
+        errorMessage += `\nReason: ${errorData.reason}`;
+      }
+      toast.error(errorMessage, { duration: 8000 });
     } finally {
       setSubmitting(false);
     }
@@ -267,37 +272,37 @@ export default function ReportEmergency() {
   const selectedSeverity = emergencyLevels.find(l => l.value === form.priority);
 
   return (
-    <div className="min-h-screen bg-white pb-32 pt-[72px] font-sans">
+    <div className="min-h-screen bg-white pb-24 sm:pb-32 pt-[64px] sm:pt-[72px] font-sans">
       {/* Sleek Minimal Header */}
-      <div className="bg-white border-b border-slate-100 py-10 relative overflow-hidden">
-        <div className="max-w-6xl mx-auto px-6">
+      <div className="bg-white border-b border-slate-100 py-6 sm:py-10 relative overflow-hidden">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-50 text-primary border border-orange-100 mb-4">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-50 text-primary border border-orange-100 mb-3 sm:mb-4">
               <Heart size={14} className="fill-primary text-primary" />
               <span className="text-[11px] font-extrabold uppercase tracking-wider">Emergency Alert Desk</span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight leading-none">
               Report an Emergency
             </h1>
-            <p className="text-slate-500 font-medium mt-3 text-base max-w-xl">
+            <p className="text-slate-500 font-medium mt-2 sm:mt-3 text-sm sm:text-base max-w-xl">
               Report an animal in distress. Your contribution alerts local shelters and rescue teams immediately.
             </p>
           </motion.div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 mt-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-4 sm:mt-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
           
           {/* LEFT PANEL: Wizard Steps Card */}
-          <div className="lg:col-span-8 bg-white border border-slate-100 rounded-[2rem] shadow-[0_8px_30px_rgba(0,0,0,0.02)] p-6 sm:p-8">
+          <div className="lg:col-span-8 bg-white border border-slate-100 rounded-3xl sm:rounded-[2rem] shadow-[0_8px_30px_rgba(0,0,0,0.02)] p-5 sm:p-8">
             
             {/* Stepper Progress Indicator */}
-            <div className="mb-10">
+            <div className="mb-8 sm:mb-10">
               {/* Desktop Steps Indicator */}
               <div className="hidden sm:flex items-center justify-between relative px-2">
                 {stepsConfig.map((s, idx) => {
@@ -376,7 +381,7 @@ export default function ReportEmergency() {
             </div>
 
             {/* Step Content Area with Animating Slide */}
-            <div className="overflow-hidden relative min-h-[350px] flex flex-col justify-between">
+            <div className="overflow-hidden relative min-h-[300px] sm:min-h-[350px] flex flex-col justify-between">
               <AnimatePresence mode="wait" custom={direction}>
                 <motion.div
                   key={step}
@@ -654,56 +659,54 @@ export default function ReportEmergency() {
               </AnimatePresence>
 
               {/* Step Navigation Controls Footer */}
-              <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-between">
-                <div>
-                  {step > 1 && (
-                    <button
-                      type="button"
-                      onClick={handleBack}
-                      disabled={submitting}
-                      className="inline-flex items-center gap-2 px-5 py-3 border border-slate-200 text-slate-600 rounded-xl font-bold text-sm bg-white hover:bg-slate-50 active:scale-95 transition-all disabled:opacity-50"
-                    >
-                      <ArrowLeft size={16} />
-                      Back
-                    </button>
-                  )}
-                </div>
+              <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-slate-100 flex items-center justify-between gap-3">
+                {step > 1 ? (
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    disabled={submitting}
+                    className="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 px-5 py-3.5 sm:py-3 border border-slate-200 text-slate-600 rounded-xl font-bold text-sm bg-white hover:bg-slate-50 active:scale-95 transition-all disabled:opacity-50"
+                  >
+                    <ArrowLeft size={16} />
+                    Back
+                  </button>
+                ) : (
+                  <div className="hidden sm:block"></div>
+                )}
 
-                <div>
-                  {step < 4 ? (
-                    <motion.button
-                      type="button"
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
-                      onClick={handleNext}
-                      className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-sm hover:bg-primary-hover hover:shadow-md active:scale-95 transition-all"
-                    >
-                      Continue
-                      <ArrowRight size={16} />
-                    </motion.button>
-                  ) : (
-                    <motion.button
-                      type="button"
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
-                      onClick={handleSubmit}
-                      disabled={submitting}
-                      className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-md shadow-orange-100 hover:bg-primary-hover active:scale-95 transition-all disabled:opacity-75"
-                    >
-                      {submitting ? (
-                        <>
-                          <Loader2 size={16} className="animate-spin" />
-                          Submitting...
-                        </>
-                      ) : (
-                        <>
-                          <Send size={16} />
-                          Submit Report
-                        </>
-                      )}
-                    </motion.button>
-                  )}
-                </div>
+                {step < 4 ? (
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    onClick={handleNext}
+                    className={`flex-1 sm:flex-none inline-flex justify-center items-center gap-2 px-6 py-3.5 sm:py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-sm hover:bg-primary-hover hover:shadow-md active:scale-95 transition-all ${step === 1 ? 'w-full sm:w-auto' : ''}`}
+                  >
+                    Continue
+                    <ArrowRight size={16} />
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                    className="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 px-6 py-3.5 sm:py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-md shadow-orange-100 hover:bg-primary-hover active:scale-95 transition-all disabled:opacity-75"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Send size={16} />
+                        Submit Report
+                      </>
+                    )}
+                  </motion.button>
+                )}
               </div>
             </div>
 

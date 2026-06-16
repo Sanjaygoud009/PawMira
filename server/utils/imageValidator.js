@@ -15,11 +15,6 @@ async function validateAnimalImage(imageUrl) {
   }
 
   try {
-    // We pass the URL. The model can process public image URLs.
-    // However, @google/genai requires we fetch the image to base64 if it's a URL in this method,
-    // or we can just ask Gemini to analyze the URL if it supports it.
-    // Wait, let's fetch the image and send it as inlineData.
-    
     const response = await fetch(imageUrl);
     if (!response.ok) {
       throw new Error(`Failed to fetch image from ${imageUrl}`);
@@ -39,7 +34,7 @@ Answer with ONLY a JSON object containing two fields:
 }`;
 
     const result = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       contents: [
         {
           role: 'user',
@@ -53,33 +48,34 @@ Answer with ONLY a JSON object containing two fields:
             }
           ]
         }
-      ]
+      ],
+      config: {
+        responseMimeType: "application/json"
+      }
     });
 
     const text = result.text;
     
     // Parse the JSON response
     try {
-      // Find the JSON block if it's wrapped in markdown
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : text;
-      const parsed = JSON.parse(jsonStr);
-      
+      const parsed = JSON.parse(text);
       return {
         isAnimal: parsed.isAnimal,
-        reason: parsed.reason
+        reason: parsed.reason || "Analysis complete"
       };
     } catch (e) {
       console.error('[GEMINI] Failed to parse JSON response:', text);
-      // Fallback: simple text match
-      const isAnimal = text.toLowerCase().includes('true') || !text.toLowerCase().includes('false');
-      return { isAnimal, reason: 'Fallback text parsing' };
+      // Fallback: simple text match if JSON parse fails
+      const textLower = text.toLowerCase();
+      const isAnimal = textLower.includes('true') || (textLower.includes('"isanimal": true'));
+      return { isAnimal, reason: 'Fallback text parsing: ' + text.substring(0, 50) };
     }
 
   } catch (error) {
-    console.error(`[GEMINI_ERROR] validateAnimalImage: ${error.message}`);
-    // Fail open if Gemini is down, don't block legitimate rescues
-    return { isAnimal: true, reason: 'Error communicating with validation service' };
+    console.error(`[GEMINI_ERROR] validateAnimalImage:`, error);
+    // TEMPORARY: Fail closed to debug why it's accepting everything.
+    // This will send the exact error message to the frontend.
+    return { isAnimal: false, reason: `SYSTEM ERROR: ${error.message}` };
   }
 }
 

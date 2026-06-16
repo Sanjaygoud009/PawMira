@@ -23,7 +23,7 @@ const runEscalation = async () => {
         // Level 1: Notify Volunteers
         // Here we could find nearby volunteers if location indexing was fully used
         // For Phase 1 MVP, we notify all general volunteers as a fallback
-        const volunteers = await User.find({ role: 'volunteer' }).select('_id');
+        const volunteers = await User.find({ role: 'volunteer', isVerified: true }).select('_id');
         
         const notifications = volunteers.map(v => ({
           user_id: v._id,
@@ -46,7 +46,7 @@ const runEscalation = async () => {
       }
       else if (report.escalation_level === 2) {
         // Level 2: Notify NGOs
-        const ngos = await User.find({ role: 'ngo' }).select('_id');
+        const ngos = await User.find({ role: 'ngo', isVerified: true }).select('_id');
         
         const notifications = ngos.map(n => ({
           user_id: n._id,
@@ -71,7 +71,7 @@ const runEscalation = async () => {
         // Level 3: Admin Alert & Critical Status
         report.priority = 'critical';
         
-        const admins = await User.find({ role: 'admin' }).select('_id');
+        const admins = await User.find({ role: 'admin', isVerified: true }).select('_id');
         
         const notifications = admins.map(a => ({
           user_id: a._id,

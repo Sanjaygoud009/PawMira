@@ -96,6 +96,7 @@ const userSchema = new mongoose.Schema({
 });
 
 userSchema.index({ location: '2dsphere' });
+userSchema.index({ otpExpires: 1 }, { expireAfterSeconds: 0, partialFilterExpression: { isVerified: false } });
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {

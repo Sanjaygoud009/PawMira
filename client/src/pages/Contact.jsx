@@ -41,7 +41,7 @@ export default function Contact() {
   const contactInfo = [
     { icon: MapPin, label: 'Address', value: 'Hyderabad, India' },
     { icon: Phone, label: 'Phone', value: '+91 99999 99999' },
-    { icon: Mail, label: 'Email', value: 'help@pawmira.org' },
+    { icon: Mail, label: 'Email', value: 'pawmiraofficial@gmail.com' },
   ];
 
   return (
@@ -76,15 +76,15 @@ export default function Contact() {
             <form onSubmit={handleSubmit} className="bg-white rounded-3xl shadow-xl border border-neutral/50 p-8 space-y-5">
               <div className="relative">
                 <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-light" />
-                <input type="text" value={form.name} onChange={(e) => setForm(f => ({...f, name: e.target.value}))} placeholder="Your name" className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-neutral text-sm focus:outline-none focus:border-primary" disabled={loading} />
+                <input type="text" value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Your name" className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-neutral text-sm focus:outline-none focus:border-primary" disabled={loading} />
               </div>
               <div className="relative">
                 <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-light" />
-                <input type="email" value={form.email} onChange={(e) => setForm(f => ({...f, email: e.target.value}))} placeholder="you@example.com" className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-neutral text-sm focus:outline-none focus:border-primary" disabled={loading} />
+                <input type="email" value={form.email} onChange={(e) => setForm(f => ({ ...f, email: e.target.value }))} placeholder="you@example.com" className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-neutral text-sm focus:outline-none focus:border-primary" disabled={loading} />
               </div>
               <div className="relative">
                 <MessageSquare size={18} className="absolute left-4 top-4 text-text-light" />
-                <textarea rows={4} value={form.message} onChange={(e) => setForm(f => ({...f, message: e.target.value}))} placeholder="Your message..." className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-neutral text-sm focus:outline-none focus:border-primary resize-none" disabled={loading} />
+                <textarea rows={4} value={form.message} onChange={(e) => setForm(f => ({ ...f, message: e.target.value }))} placeholder="Your message..." className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-neutral text-sm focus:outline-none focus:border-primary resize-none" disabled={loading} />
               </div>
               <button type="submit" disabled={loading} className="w-full flex items-center justify-center gap-2 py-3.5 bg-primary text-white font-bold rounded-2xl hover:bg-primary-dark transition-all shadow-lg disabled:opacity-60">
                 {loading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}

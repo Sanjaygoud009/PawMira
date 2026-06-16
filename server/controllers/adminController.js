@@ -9,8 +9,8 @@ const mongoose = require('mongoose');
 // @route   GET /api/admin/stats
 exports.getStats = async (req, res) => {
   try {
-    const totalUsers = await User.countDocuments({ role: 'volunteer' });
-    const totalNGOs = await User.countDocuments({ role: 'ngo' });
+    const totalUsers = await User.countDocuments({ role: 'volunteer', isVerified: true });
+    const totalNGOs = await User.countDocuments({ role: 'ngo', isVerified: true });
     const activeRescues = await Report.countDocuments({ status: { $nin: ['safe', 'inactive'] }, is_deleted: false });
     const resolvedRescues = await Report.countDocuments({ status: 'safe', is_deleted: false });
     const totalLostFound = await LostPet.countDocuments({ is_deleted: false }) + await FoundPet.countDocuments({ is_deleted: false });
@@ -32,7 +32,7 @@ exports.getStats = async (req, res) => {
 // @route   GET /api/admin/users
 exports.getUsers = async (req, res) => {
   try {
-    const users = await User.find({}, '-password').sort({ created_at: -1 }).lean();
+    const users = await User.find({ isVerified: true }, '-password').sort({ created_at: -1 }).lean();
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch users' });

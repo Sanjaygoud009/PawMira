@@ -348,7 +348,7 @@ export default function Dashboard() {
               Welcome, {user?.name || 'Volunteer'}
             </p>
           </div>
-          
+
           <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
             <button
               onClick={() => setActiveTab('profile')}
@@ -415,7 +415,7 @@ export default function Dashboard() {
                   <div className="grid grid-cols-1 gap-3">
                     {user.achievements.map((ach, idx) => (
                       <div key={idx} className="flex items-center gap-3 p-3 bg-neutral/50 rounded-xl border border-neutral">
-                        <div className="bg-yellow-100 p-2 rounded-lg"><Trophy size={16} className="text-yellow-600"/></div>
+                        <div className="bg-yellow-100 p-2 rounded-lg"><Trophy size={16} className="text-yellow-600" /></div>
                         <div>
                           <p className="font-bold text-sm text-dark">{ach.title}</p>
                           <p className="text-[10px] text-text-light">Earned on {new Date(ach.earned_at).toLocaleDateString()}</p>
@@ -439,7 +439,7 @@ export default function Dashboard() {
                       type="text"
                       value={profileForm.service_area}
                       onChange={e => setProfileForm({ ...profileForm, service_area: e.target.value })}
-                      placeholder="e.g. KPHB, Madhapur"
+                      placeholder="e.g. Suncity, Hyderabad"
                       className="w-full px-4 py-2 border border-neutral rounded-xl bg-neutral/30 focus:outline-none focus:border-primary text-sm"
                     />
                     <p className="text-[10px] text-text-light mt-1">This connects you to the local Area Leaderboard.</p>
@@ -485,51 +485,49 @@ export default function Dashboard() {
             {/* Stats */}
             <StatsBar reports={reports} />
 
-        {/* Filters & View Toggle */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Filter size={14} className="text-text-light" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 text-sm border border-neutral rounded-xl bg-white focus:outline-none focus:border-primary"
-            >
-              <option value="">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="in_progress">In Progress</option>
-              <option value="rescued">Rescued</option>
-            </select>
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              className="px-3 py-2 text-sm border border-neutral rounded-xl bg-white focus:outline-none focus:border-primary"
-            >
-              <option value="">All Priority</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </select>
-          </div>
+            {/* Filters & View Toggle */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Filter size={14} className="text-text-light" />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-3 py-2 text-sm border border-neutral rounded-xl bg-white focus:outline-none focus:border-primary"
+                >
+                  <option value="">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="rescued">Rescued</option>
+                </select>
+                <select
+                  value={priorityFilter}
+                  onChange={(e) => setPriorityFilter(e.target.value)}
+                  className="px-3 py-2 text-sm border border-neutral rounded-xl bg-white focus:outline-none focus:border-primary"
+                >
+                  <option value="">All Priority</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
 
-          <div className="sm:ml-auto flex items-center bg-white border border-neutral rounded-xl overflow-hidden">
-            <button
-              onClick={() => setView('list')}
-              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors ${
-                view === 'list' ? 'bg-primary text-white' : 'text-text-light hover:text-dark'
-              }`}
-            >
-              <List size={14} /> List
-            </button>
-            <button
-              onClick={() => setView('map')}
-              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors ${
-                view === 'map' ? 'bg-primary text-white' : 'text-text-light hover:text-dark'
-              }`}
-            >
-              <MapIcon size={14} /> Map
-            </button>
-          </div>
-        </div>
+              <div className="sm:ml-auto flex items-center bg-white border border-neutral rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setView('list')}
+                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors ${view === 'list' ? 'bg-primary text-white' : 'text-text-light hover:text-dark'
+                    }`}
+                >
+                  <List size={14} /> List
+                </button>
+                <button
+                  onClick={() => setView('map')}
+                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors ${view === 'map' ? 'bg-primary text-white' : 'text-text-light hover:text-dark'
+                    }`}
+                >
+                  <MapIcon size={14} /> Map
+                </button>
+              </div>
+            </div>
 
             {/* Content */}
             {loading ? (
@@ -556,7 +554,7 @@ export default function Dashboard() {
               <h2 className="font-bold text-dark">Support & Announcements</h2>
               <p className="text-xs text-text-light">Messages from the PawMira Admin team</p>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar flex flex-col bg-slate-50/30">
               {messages.map(m => {
                 const isAdmin = m.sender !== user._id; // Anything not from me is from admin/broadcast
@@ -571,10 +569,10 @@ export default function Dashboard() {
                     {isAdmin && !isBroadcast && (
                       <div className="text-[10px] uppercase tracking-wider font-bold text-text-light mb-1">Admin Support</div>
                     )}
-                    
+
                     {editingMessageId === m._id ? (
                       <form onSubmit={handleEditMessage} className="flex flex-col gap-2 mt-1">
-                        <input 
+                        <input
                           autoFocus
                           value={editMessageContent}
                           onChange={(e) => setEditMessageContent(e.target.value)}

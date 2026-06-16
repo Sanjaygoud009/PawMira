@@ -4,7 +4,7 @@ const User = require('../models/User');
 // @route   GET /api/leaderboards/global
 exports.getGlobalLeaderboard = async (req, res) => {
   try {
-    const heroes = await User.find({ hearts: { $gt: 0 } })
+    const heroes = await User.find({ hearts: { $gt: 0 }, isVerified: true })
       .select('name hearts hero_level rescue_count reunited_pets_count city state service_area')
       .sort({ hearts: -1 })
       .limit(50);
@@ -27,7 +27,8 @@ exports.getAreaLeaderboard = async (req, res) => {
 
     const heroes = await User.find({ 
       service_area: new RegExp(`^${service_area}$`, 'i'),
-      hearts: { $gt: 0 }
+      hearts: { $gt: 0 },
+      isVerified: true
     })
       .select('name hearts hero_level rescue_count reunited_pets_count city state service_area')
       .sort({ hearts: -1 })
