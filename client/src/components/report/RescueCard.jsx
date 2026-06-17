@@ -41,6 +41,20 @@ export default function RescueCard({ report, onUpdate, user }) {
     }
   };
 
+  const handleCancelResponse = async () => {
+    if (!user) return;
+    try {
+      setLoading(true);
+      const res = await api.post(`/reports/${report._id}/cancel-response`);
+      toast.success("Response cancelled.");
+      onUpdate(res.data);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to cancel response');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleMonitor = async () => {
     if (!user) return toast.error('Please login to monitor.');
     try {
@@ -90,6 +104,14 @@ export default function RescueCard({ report, onUpdate, user }) {
   const isBackup = user && report.backup_responders?.some(b => (b._id || b) === user._id);
   const isMonitoring = user && report.monitors?.includes(user._id);
   const canChat = user && (isPrimary || isBackup || isMonitoring || report.reporter_id === user._id);
+
+  const userAcceptedEvents = report.timeline?.filter(e => 
+    e.event_type === 'accepted' && (e.user_id === user?._id || e.user_id?._id === user?._id)
+  ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) || [];
+  
+  const lastAcceptedAt = userAcceptedEvents.length > 0 ? new Date(userAcceptedEvents[0].created_at) : null;
+  const fiveMinutesInMs = 5 * 60 * 1000;
+  const canCancel = lastAcceptedAt && (Date.now() - lastAcceptedAt.getTime() <= fiveMinutesInMs) && report.status !== 'safe';
 
   const timeAgo = formatDistanceToNow(new Date(report.created_at), { addSuffix: true });
   const verifiedAgo = formatDistanceToNow(new Date(report.last_activity_at || report.created_at), { addSuffix: true });
@@ -213,13 +235,25 @@ export default function RescueCard({ report, onUpdate, user }) {
 
         <div className="flex items-center gap-2 mt-auto pt-4 border-t border-neutral">
           {isPrimary && report.status !== 'safe' ? (
-            <button 
-              onClick={() => window.dispatchEvent(new CustomEvent('openResolveModal', { detail: report._id }))}
-              className="flex-1 bg-success text-white py-2 rounded-xl text-sm font-bold hover:bg-green-600 transition-colors shadow-sm flex items-center justify-center gap-2"
-              title="Mark this rescue as safe and resolved."
-            >
-              <CheckCircle size={16} /> Mark as Safe
-            </button>
+            <div className="flex gap-2 flex-1">
+              <button 
+                onClick={() => window.dispatchEvent(new CustomEvent('openResolveModal', { detail: report._id }))}
+                className="flex-1 bg-success text-white py-2 rounded-xl text-sm font-bold hover:bg-green-600 transition-colors shadow-sm flex items-center justify-center gap-2"
+                title="Mark this rescue as safe and resolved."
+              >
+                <CheckCircle size={16} /> Mark as Safe
+              </button>
+              {canCancel && (
+                <button 
+                  onClick={handleCancelResponse}
+                  disabled={loading}
+                  className="bg-error/10 text-error hover:bg-error/20 px-3 sm:px-4 py-2 rounded-xl text-sm font-bold transition-colors shadow-sm disabled:opacity-50 shrink-0"
+                  title="Cancel Response (within 5 minutes)"
+                >
+                  {loading ? '...' : 'Cancel'}
+                </button>
+              )}
+            </div>
           ) : report.status === 'safe' ? (
             <button 
               disabled={true}
@@ -228,13 +262,25 @@ export default function RescueCard({ report, onUpdate, user }) {
               <CheckCircle size={16} /> Rescue Resolved
             </button>
           ) : isBackup ? (
-            <button 
-              disabled={true}
-              className="flex-1 bg-[#e8f5e9] text-success border border-success/30 py-2 rounded-xl text-sm font-medium cursor-default shadow-sm font-semibold"
-              title="You have joined this rescue as a backup responder!"
-            >
-              Joined as Backup
-            </button>
+            <div className="flex gap-2 flex-1">
+              <button 
+                disabled={true}
+                className="flex-1 bg-[#e8f5e9] text-success border border-success/30 py-2 rounded-xl text-sm font-medium cursor-default shadow-sm font-semibold truncate"
+                title="You have joined this rescue as a backup responder!"
+              >
+                Joined as Backup
+              </button>
+              {canCancel && (
+                <button 
+                  onClick={handleCancelResponse}
+                  disabled={loading}
+                  className="bg-error/10 text-error hover:bg-error/20 px-3 sm:px-4 py-2 rounded-xl text-sm font-bold transition-colors shadow-sm disabled:opacity-50 shrink-0"
+                  title="Cancel Response (within 5 minutes)"
+                >
+                  {loading ? '...' : 'Cancel'}
+                </button>
+              )}
+            </div>
           ) : totalResponders >= maxResponders ? (
             <button 
               disabled={true}

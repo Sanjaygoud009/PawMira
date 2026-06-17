@@ -245,6 +245,74 @@ exports.respondToReport = async (req, res) => {
   }
 };
 
+// @desc    Cancel response to a report
+// @route   POST /api/reports/:id/cancel-response
+exports.cancelResponse = async (req, res) => {
+  try {
+    const report = await Report.findById(req.params.id);
+    if (!report || report.is_deleted) return res.status(404).json({ message: 'Report not found' });
+
+    const userId = req.user._id.toString();
+    const isPrimary = report.primary_responder && report.primary_responder.toString() === userId;
+    const isBackup = report.backup_responders && report.backup_responders.some(id => id.toString() === userId);
+
+    if (!isPrimary && !isBackup) {
+      return res.status(400).json({ message: 'You are not responding to this rescue.' });
+    }
+
+    // Find latest accepted event by this user
+    const userEvents = report.timeline.filter(e => 
+      e.event_type === 'accepted' && 
+      e.user_id && e.user_id.toString() === userId
+    ).sort((a, b) => b.created_at - a.created_at);
+
+    if (userEvents.length === 0) {
+      return res.status(400).json({ message: 'Could not find your response record.' });
+    }
+
+    const lastAcceptedEvent = userEvents[0];
+    const fiveMinutesInMs = 5 * 60 * 1000;
+    
+    if (Date.now() - new Date(lastAcceptedEvent.created_at).getTime() > fiveMinutesInMs) {
+      return res.status(400).json({ message: 'You can only cancel your response within 5 minutes of accepting.' });
+    }
+
+    if (isPrimary) {
+      // If primary is removed, promote first backup if available
+      if (report.backup_responders && report.backup_responders.length > 0) {
+        report.primary_responder = report.backup_responders.shift();
+      } else {
+        report.primary_responder = undefined;
+        report.status = 'open'; // Revert to open if no responders
+      }
+    } else if (isBackup) {
+      report.backup_responders = report.backup_responders.filter(id => id.toString() !== userId);
+    }
+
+    report.timeline.push({
+      event_type: 'cancelled',
+      description: 'A responder cancelled their response.',
+      user_id: req.user._id,
+      created_at: new Date()
+    });
+
+    report.history.push({ status: report.status, updated_by: req.user._id, updated_at: new Date() });
+    report.last_activity_at = new Date();
+
+    await report.save();
+
+    const populatedReport = await Report.findById(report._id)
+      .populate('primary_responder', 'name')
+      .populate('backup_responders', 'name')
+      .lean();
+
+    res.json(populatedReport);
+  } catch (error) {
+    console.error(`[REPORT_ERROR] cancelResponse: ${error.message}`);
+    res.status(500).json({ message: 'Failed to cancel response' });
+  }
+};
+
 // @desc    Upload proof / update report
 // @route   POST /api/reports/:id/update
 exports.addReportUpdate = async (req, res) => {
