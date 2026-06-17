@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import api from '../utils/api';
 import {
   AlertTriangle,
@@ -135,15 +136,13 @@ function Hero() {
               <AlertTriangle className="w-[18px] h-[18px] transition-transform group-hover:scale-110" />
               Report Emergency
             </Link>
-            <a
-              href="https://wa.me/919999999999?text=I%20want%20to%20report%20an%20injured%20dog"
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => toast('WhatsApp reporting is coming soon!', { icon: '🚧' })}
               className="group flex items-center justify-center gap-2.5 px-6 py-3.5 bg-white/5 backdrop-blur-md text-white border border-white/10 font-semibold rounded-xl text-[15px] sm:text-base hover:bg-white/10 transition-all duration-300 hover:-translate-y-0.5 w-full sm:w-auto"
             >
               <MessageCircle className="w-[18px] h-[18px] text-[#25D366] transition-transform group-hover:scale-110" />
               WhatsApp Report
-            </a>
+            </button>
           </div>
         </motion.div>
       </div>
@@ -272,8 +271,8 @@ function HowItWorks() {
             >
               <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 shadow-[0_10px_40px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgba(0,0,0,0.08)] transition-all duration-500 border border-neutral/60 hover:-translate-y-2 text-center h-full pt-10 sm:pt-10">
 
-                <div className={`mx-auto w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-gradient-to-br ${step.color} p-0.5 mb-6 sm:mb-8 shadow-xl group-hover:scale-110 transition-transform duration-500`}>
-                  <div className="w-full h-full bg-white rounded-[0.9rem] sm:rounded-[1.4rem] flex items-center justify-center">
+                <div className={`mx-auto flex items-center justify-center shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-gradient-to-br ${step.color} p-[2px] mb-6 sm:mb-8 shadow-xl group-hover:scale-110 transition-transform duration-500`}>
+                  <div className="w-full h-full bg-white rounded-2xl sm:rounded-[1.4rem] flex items-center justify-center">
                     <step.icon className="w-7 h-7 sm:w-8 sm:h-8 text-dark" />
                   </div>
                 </div>

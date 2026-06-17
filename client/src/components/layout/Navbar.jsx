@@ -69,7 +69,7 @@ export default function Navbar() {
 
   const navLinks = [
     { to: '/', label: 'Home' },
-    { to: '/feed', label: 'Live Feed' },
+    { to: '/feed', label: 'Live Feed', highlight: true },
     { to: '/gallery', label: 'Rescued' },
     { to: '/services', label: 'Services' },
     { to: '/lost-found', label: 'Lost & Found' },
@@ -118,7 +118,7 @@ export default function Navbar() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 10, scale: 0.95 }}
           transition={{ duration: 0.15 }}
-          className="absolute right-0 sm:right-0 -right-[4.5rem] mt-2 w-80 sm:w-96 bg-white border border-neutral/50 rounded-2xl shadow-2xl overflow-hidden z-50 origin-top-right"
+          className="absolute right-[-1rem] sm:right-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-2rem)] bg-white border border-neutral/50 rounded-2xl shadow-2xl overflow-hidden z-50 origin-top-right"
         >
           <div className="flex items-center justify-between p-4 border-b border-neutral/50 bg-neutral/10">
             <span className="font-bold text-dark text-sm">Notifications</span>
@@ -170,29 +170,39 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group" aria-label="PawMira Home">
+          <Link to="/" className="flex items-center gap-3 group" aria-label="PawMira Home">
             <img
-              src="/logo.webp"
+              src="/new_logo.png"
               alt=""
-              className="h-9 w-9 rounded-lg transition-transform group-hover:scale-105"
+              className="h-11 w-11 sm:h-12 sm:w-12 rounded-xl transition-transform group-hover:scale-105 shadow-md"
             />
-            <span className="text-xl font-bold text-white tracking-tight">
+            <span className="text-2xl font-black text-white tracking-tight">
               Paw<span className="text-primary">Mira</span>
             </span>
           </Link>
 
           {/* Desktop Nav */}
-          <div className="hidden lg:flex items-center gap-0.5">
+          <div className="hidden lg:flex items-center gap-1.5 xl:gap-2.5">
             {navLinks.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  isActive(link.to)
-                    ? 'text-primary bg-primary/10'
-                    : 'text-neutral hover:text-white hover:bg-white/5'
+                className={`relative px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  link.highlight
+                    ? isActive(link.to)
+                      ? 'text-white bg-primary shadow-lg shadow-primary/20'
+                      : 'text-primary bg-primary/10 border border-primary/20 hover:bg-primary/20 hover:text-primary-hover'
+                    : isActive(link.to)
+                      ? 'text-primary bg-primary/10'
+                      : 'text-neutral hover:text-white hover:bg-white/5'
                 }`}
               >
+                {link.highlight && (
+                  <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+                  </span>
+                )}
                 {link.label}
               </Link>
             ))}
@@ -293,20 +303,32 @@ export default function Navbar() {
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className="lg:hidden bg-dark/98 backdrop-blur-xl border-t border-white/5 overflow-hidden"
+            className="lg:hidden bg-dark/98 backdrop-blur-xl border-t border-white/5 overflow-y-auto max-h-[calc(100vh-4rem)] overscroll-contain"
           >
-            <div className="px-4 py-4 space-y-1">
+            <div className="px-4 py-4 pb-8 space-y-1">
               {navLinks.map((link) => (
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`block px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                    isActive(link.to)
-                      ? 'text-primary bg-primary/10'
-                      : 'text-neutral hover:text-white hover:bg-white/5'
+                  className={`block px-4 py-3 rounded-xl text-sm font-medium transition-colors relative ${
+                    link.highlight
+                      ? isActive(link.to)
+                        ? 'text-white bg-primary shadow-lg shadow-primary/20'
+                        : 'text-primary bg-primary/10 border border-primary/20 hover:bg-primary/20'
+                      : isActive(link.to)
+                        ? 'text-primary bg-primary/10'
+                        : 'text-neutral hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  {link.label}
+                  <div className="flex items-center justify-between">
+                    <span>{link.label}</span>
+                    {link.highlight && (
+                      <span className="relative flex h-2.5 w-2.5 mr-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+                      </span>
+                    )}
+                  </div>
                 </Link>
               ))}
 

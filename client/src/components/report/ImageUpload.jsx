@@ -1,9 +1,23 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Camera, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { compressImage } from '../../utils/imageCompressor';
 
-export default function ImageUpload({ onImageSelect, disabled }) {
+export default function ImageUpload({ value, onImageSelect, disabled }) {
   const [preview, setPreview] = useState(null);
+
+  useEffect(() => {
+    if (value) {
+      if (typeof value === 'string') {
+        setPreview(value);
+      } else if (value instanceof File || value instanceof Blob) {
+        const objectUrl = URL.createObjectURL(value);
+        setPreview(objectUrl);
+        return () => URL.revokeObjectURL(objectUrl);
+      }
+    } else {
+      setPreview(null);
+    }
+  }, [value]);
   const [compressing, setCompressing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
@@ -69,7 +83,7 @@ export default function ImageUpload({ onImageSelect, disabled }) {
         <button
           type="button"
           onClick={clearImage}
-          className="absolute top-3 right-3 p-2 bg-dark/70 text-white rounded-full hover:bg-warning transition-colors"
+          className="absolute top-3 right-3 p-2 bg-black/70 text-white rounded-full hover:bg-warning transition-colors"
           aria-label="Remove image"
         >
           <X size={16} />

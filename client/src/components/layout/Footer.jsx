@@ -33,9 +33,9 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1 space-y-4">
-            <Link to="/" className="inline-flex items-center gap-2" aria-label="PawMira Home">
-              <img src="/logo.webp" alt="" className="h-9 w-9 rounded-lg" />
-              <span className="text-xl font-bold text-white">
+            <Link to="/" className="inline-flex items-center gap-3" aria-label="PawMira Home">
+              <img src="/new_logo.png" alt="" className="h-11 w-11 sm:h-12 sm:w-12 rounded-xl shadow-md" />
+              <span className="text-2xl font-black text-white tracking-tight">
                 Paw<span className="text-primary">Mira</span>
               </span>
             </Link>
@@ -89,10 +89,10 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <a href="https://wa.me/919999999999" target="_blank" rel="noopener noreferrer" className="inline-btn flex items-center gap-1.5 text-sm text-neutral-dark hover:text-[#25D366] transition-colors py-0.5">
+                <button onClick={() => toast('WhatsApp reporting is coming soon!', { icon: '🚧' })} className="inline-btn flex items-center gap-1.5 text-sm text-neutral-dark hover:text-[#25D366] transition-colors py-0.5">
                   <MessageCircle size={13} />
                   WhatsApp Report
-                </a>
+                </button>
               </li>
               <li>
                 <Link to="/dashboard" className="inline-btn text-sm text-neutral-dark hover:text-primary transition-colors py-0.5 inline-block">

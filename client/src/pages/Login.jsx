@@ -41,7 +41,7 @@ export default function Login() {
       >
         {/* Left brand panel — desktop only */}
         <div className="hidden md:flex md:w-2/5 gradient-dark flex-col justify-center items-center p-10 text-center">
-          <img src="/logo.webp" alt="" className="h-16 w-16 rounded-xl mb-6 shadow-lg" />
+          <img src="/new_logo.png" alt="" className="h-16 w-16 rounded-xl mb-6 shadow-lg" />
           <h2 className="text-2xl font-black text-white mb-3">Welcome Back</h2>
           <p className="text-sm text-neutral-dark leading-relaxed">Every second counts. Sign in to manage rescues, track your impact, and save more lives.</p>
         </div>
@@ -49,7 +49,7 @@ export default function Login() {
         {/* Right form panel */}
         <div className="w-full md:w-3/5 bg-white p-6 sm:p-10">
           <div className="text-center mb-6 md:text-left">
-            <img src="/logo.webp" alt="PawMira" className="h-12 w-12 mx-auto md:mx-0 rounded-xl mb-3" />
+            <img src="/new_logo.png" alt="PawMira" className="h-12 w-12 mx-auto md:mx-0 rounded-xl mb-3" />
             <h1 className="text-2xl font-black text-dark">Sign In</h1>
             <p className="text-text-light text-sm mt-1">Access your rescue dashboard</p>
           </div>

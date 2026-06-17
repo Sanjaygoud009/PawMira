@@ -54,6 +54,7 @@ export default function ReportEmergency() {
     reporter_name: '',
     reporter_phone: '',
     issue_type: '',
+    other_issue_type: '',
     priority: '',
     description: '',
     image: null,
@@ -131,6 +132,7 @@ export default function ReportEmergency() {
     const errs = {};
     if (stepNumber === 1) {
       if (!form.issue_type) errs.issue_type = 'Please select the situation type.';
+      if (form.issue_type === 'other' && !form.other_issue_type?.trim()) errs.other_issue_type = 'Please specify the situation.';
       if (!form.priority) errs.priority = 'Please select an emergency level.';
     } else if (stepNumber === 2) {
       if (!form.location) errs.location = 'Please pin the animal\'s location on the map.';
@@ -183,7 +185,12 @@ export default function ReportEmergency() {
       formData.append('reporter_phone', form.reporter_phone);
       formData.append('issue_type', form.issue_type);
       formData.append('priority', form.priority);
-      formData.append('description', form.description);
+      
+      let finalDesc = form.description;
+      if (form.issue_type === 'other' && form.other_issue_type?.trim()) {
+        finalDesc = `Specific Issue: ${form.other_issue_type}\n\n${finalDesc}`.trim();
+      }
+      formData.append('description', finalDesc);
       formData.append('latitude', form.location.latitude);
       formData.append('longitude', form.location.longitude);
       if (form.image) formData.append('image', form.image);
@@ -456,6 +463,38 @@ export default function ReportEmergency() {
                             {errors.issue_type}
                           </motion.p>
                         )}
+                        {/* Other issue text input */}
+                        <AnimatePresence>
+                          {form.issue_type === 'other' && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                              animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
+                              exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="relative group">
+                                <input
+                                  type="text"
+                                  placeholder="Please specify the situation..."
+                                  value={form.other_issue_type}
+                                  onChange={(e) => {
+                                    setForm(f => ({ ...f, other_issue_type: e.target.value }));
+                                    setErrors(er => ({ ...er, other_issue_type: undefined }));
+                                  }}
+                                  disabled={submitting}
+                                  className={`w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-transparent text-sm font-medium text-slate-900 placeholder:text-slate-400 transition-all focus:outline-none focus:border-primary focus:bg-white ${
+                                    errors.other_issue_type ? '!border-red-200 !bg-red-50/50' : ''
+                                  }`}
+                                />
+                              </div>
+                              {errors.other_issue_type && (
+                                <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-xs font-semibold text-red-500 mt-1">
+                                  {errors.other_issue_type}
+                                </motion.p>
+                              )}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
 
                       {/* Severity Pill Selector */}
@@ -542,6 +581,7 @@ export default function ReportEmergency() {
 
                       <div className="bg-slate-50 rounded-2xl p-2 border border-slate-100/50">
                         <ImageUpload
+                          value={form.image}
                           onImageSelect={(img) => {
                             setForm(f => ({ ...f, image: img }));
                             setErrors(e => ({ ...e, image: undefined }));
