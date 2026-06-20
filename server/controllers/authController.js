@@ -15,6 +15,21 @@ const createTransporter = () => {
   });
 };
 
+exports.testEmail = async (req, res) => {
+  try {
+    const transporter = createTransporter();
+    const info = await transporter.sendMail({
+      from: `"PawMira" <${process.env.EMAIL_USER}>`,
+      to: process.env.EMAIL_USER, // Send to itself
+      subject: "Test from Render",
+      text: "If you see this, Nodemailer is working on Render!"
+    });
+    res.json({ success: true, info });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message, stack: err.stack });
+  }
+};
+
 // Generate JWT
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '7d' });
