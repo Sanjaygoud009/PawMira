@@ -6,7 +6,7 @@ import { X, Send, UserRound } from 'lucide-react';
 import api from '../../utils/api';
 import { getSafeImageUrl } from '../../utils/imageUtils';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://127.0.0.1:5000';
 
 export default function RescueChat({ reportId, user, onClose }) {
   const [messages, setMessages] = useState([]);
