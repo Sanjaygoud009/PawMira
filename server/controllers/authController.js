@@ -2,7 +2,11 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const dns = require('dns');
 const { validateEmail } = require('../utils/emailValidator');
+
+// Force IPv4 because Render instances do not support outgoing IPv6 for SMTP
+dns.setDefaultResultOrder('ipv4first');
 
 // Create transporter using Gmail
 const createTransporter = () => {
