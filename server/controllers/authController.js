@@ -58,8 +58,10 @@ exports.register = async (req, res) => {
     user.otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
     await user.save();
 
-    // Send email asynchronously so it doesn't block the UI
+    // Send email asynchronously so it doesn't block the UI and cause proxy timeouts
     const transporter = createTransporter();
+    console.log(`[AUTH] Attempting to send OTP email to ${email}...`);
+    
     transporter.sendMail({
       from: `"PawMira" <${process.env.EMAIL_USER}>`,
       to: email,
@@ -77,6 +79,8 @@ exports.register = async (req, res) => {
           <p>Best,<br/>The PawMira Team</p>
         </div>
       `,
+    }).then(() => {
+      console.log(`[AUTH] OTP email successfully sent to ${email}`);
     }).catch(err => {
       console.error(`[EMAIL_ERROR] Failed to send OTP to ${email}: ${err.message}`);
     });
