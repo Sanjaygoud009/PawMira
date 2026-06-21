@@ -3,37 +3,92 @@ const User = require('../models/User');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const dns = require('dns');
+const { promisify } = require('util');
 const { validateEmail } = require('../utils/emailValidator');
 
-// Force IPv4 because Render instances do not support outgoing IPv6 for SMTP
+// Force IPv4 because Render's free tier cannot reach IPv6 addresses
 dns.setDefaultResultOrder('ipv4first');
+const resolve4 = promisify(dns.resolve4);
 
-// Create transporter using Gmail with explicit SMTP settings for Render compatibility
-const createTransporter = () => {
+// Resolve smtp.gmail.com to an IPv4 address to avoid ENETUNREACH on Render
+const createTransporter = async () => {
+  let host = 'smtp.gmail.com';
+  try {
+    const addresses = await resolve4('smtp.gmail.com');
+    if (addresses.length > 0) {
+      host = addresses[0];
+      console.log(`[OTP] SMTP resolved to IPv4: ${host}`);
+    }
+  } catch (e) {
+    console.warn(`[OTP] IPv4 DNS lookup failed, using hostname: ${e.message}`);
+  }
+
   return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
+    host,
     port: 465,
-    secure: true, // SSL
-    family: 4,    // Force IPv4 — Render cannot reach IPv6 addresses
+    secure: true,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
-    pool: true,              // reuse connections
-    maxConnections: 3,
-    connectionTimeout: 10000, // 10s to establish connection
-    greetingTimeout: 10000,   // 10s for SMTP greeting
-    socketTimeout: 15000,     // 15s for socket inactivity
-    logger: process.env.NODE_ENV !== 'production', // log SMTP in dev
+    tls: {
+      servername: 'smtp.gmail.com',
+    },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
   });
+};
+
+// Send OTP email in background — logs each stage, clears OTP on failure
+const sendOTPEmail = async (userId, toEmail, userName, userRole, otp) => {
+  console.log(`[OTP] Background email started for ${toEmail}`);
+
+  try {
+    const transporter = await createTransporter();
+    console.log(`[OTP] SMTP connected`);
+
+    const info = await transporter.sendMail({
+      from: `"PawMira" <${process.env.EMAIL_USER}>`,
+      to: toEmail,
+      subject: `🐾 Verify Your PawMira Account`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #FF6B35; text-align: center;">Welcome to PawMira!</h2>
+          <p>Hi ${userName},</p>
+          <p>Thank you for signing up as a ${userRole}. To complete your registration, please use the following One-Time Password (OTP):</p>
+          <div style="background: #f9f9f9; padding: 20px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold; color: #333; margin: 20px 0;">
+            ${otp}
+          </div>
+          <p>This code will expire in 10 minutes.</p>
+          <p>If you didn't request this, please ignore this email.</p>
+          <p>Best,<br/>The PawMira Team</p>
+        </div>
+      `,
+    });
+
+    console.log(`[OTP] Email sent successfully to ${toEmail} (messageId: ${info.messageId})`);
+  } catch (err) {
+    console.error(`[OTP ERROR] Failed to send to ${toEmail}: ${err.message}`);
+
+    // Mark OTP as failed so the user can retry
+    try {
+      await User.findByIdAndUpdate(userId, {
+        $unset: { otp: '', otpExpires: '' }
+      });
+      console.log(`[OTP] Cleared failed OTP for ${toEmail}`);
+    } catch (dbErr) {
+      console.error(`[OTP ERROR] Failed to clear OTP in DB: ${dbErr.message}`);
+    }
+  }
 };
 
 exports.testEmail = async (req, res) => {
   try {
-    const transporter = createTransporter();
+    const transporter = await createTransporter();
     const info = await transporter.sendMail({
       from: `"PawMira" <${process.env.EMAIL_USER}>`,
-      to: process.env.EMAIL_USER, // Send to itself
+      to: process.env.EMAIL_USER,
       subject: "Test from Render",
       text: "If you see this, Nodemailer is working on Render!"
     });
@@ -48,11 +103,19 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
+// Track in-flight registrations to prevent duplicate clicks
+const pendingRegistrations = new Set();
+
 // @desc    Register a new user (sends OTP)
 // @route   POST /api/auth/register
 exports.register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
+
+    // Prevent duplicate submissions for the same email
+    if (pendingRegistrations.has(email)) {
+      return res.status(200).json({ message: 'OTP is already being sent. Please check your email.' });
+    }
 
     // Validate email format and block disposable emails
     const emailCheck = validateEmail(email);
@@ -66,7 +129,7 @@ exports.register = async (req, res) => {
       if (user.isVerified) {
         return res.status(400).json({ message: 'User already exists with this email' });
       }
-      // If user exists but unverified, we can just update their info and resend OTP
+      // If user exists but unverified, update their info and resend OTP
       user.name = name;
       user.password = password;
       user.role = ['volunteer', 'ngo'].includes(role) ? role : 'volunteer';
@@ -86,36 +149,16 @@ exports.register = async (req, res) => {
     user.otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
     await user.save();
 
-    const transporter = createTransporter();
-    console.log(`[AUTH] Attempting to send OTP email to ${email}...`);
-    
-    try {
-      await transporter.sendMail({
-        from: `"PawMira" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: `🐾 Verify Your PawMira Account`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #FF6B35; text-align: center;">Welcome to PawMira!</h2>
-            <p>Hi ${name},</p>
-            <p>Thank you for signing up as a ${user.role}. To complete your registration, please use the following One-Time Password (OTP):</p>
-            <div style="background: #f9f9f9; padding: 20px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold; color: #333; margin: 20px 0;">
-              ${otp}
-            </div>
-            <p>This code will expire in 10 minutes.</p>
-            <p>If you didn't request this, please ignore this email.</p>
-            <p>Best,<br/>The PawMira Team</p>
-          </div>
-        `,
-      });
-      console.log(`[AUTH] OTP email successfully sent to ${email}`);
-      res.status(200).json({ message: 'OTP sent to email. Please verify.' });
-    } catch (err) {
-      console.error(`[EMAIL_ERROR] Failed to send OTP to ${email}: ${err.message}`);
-      return res.status(500).json({ message: 'Failed to send OTP email. Please check your email address and try again.', error: err.message });
-    }
+    // Respond immediately — OTP is saved, email will be sent in background
+    res.status(200).json({ message: 'OTP sent to email. Please verify.' });
+
+    // Send email in background (after response)
+    pendingRegistrations.add(email);
+    sendOTPEmail(user._id, email, name, user.role, otp).finally(() => {
+      pendingRegistrations.delete(email);
+    });
   } catch (error) {
-    console.error(`[AUTH_ERROR] register: ${error.message}`);
+    console.error(`[OTP ERROR] ${error.message}`);
     res.status(500).json({ message: 'Server error during registration' });
   }
 };
@@ -234,7 +277,7 @@ exports.forgotPassword = async (req, res) => {
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
-    const transporter = createTransporter();
+    const transporter = await createTransporter();
     await transporter.sendMail({
       from: `"PawMira" <${process.env.EMAIL_USER}>`,
       to: user.email,
