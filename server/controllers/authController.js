@@ -77,34 +77,34 @@ exports.register = async (req, res) => {
     user.otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
     await user.save();
 
-    // Send email asynchronously so it doesn't block the UI and cause proxy timeouts
     const transporter = createTransporter();
     console.log(`[AUTH] Attempting to send OTP email to ${email}...`);
     
-    transporter.sendMail({
-      from: `"PawMira" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: `🐾 Verify Your PawMira Account`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #FF6B35; text-align: center;">Welcome to PawMira!</h2>
-          <p>Hi ${name},</p>
-          <p>Thank you for signing up as a ${user.role}. To complete your registration, please use the following One-Time Password (OTP):</p>
-          <div style="background: #f9f9f9; padding: 20px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold; color: #333; margin: 20px 0;">
-            ${otp}
+    try {
+      await transporter.sendMail({
+        from: `"PawMira" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: `🐾 Verify Your PawMira Account`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #FF6B35; text-align: center;">Welcome to PawMira!</h2>
+            <p>Hi ${name},</p>
+            <p>Thank you for signing up as a ${user.role}. To complete your registration, please use the following One-Time Password (OTP):</p>
+            <div style="background: #f9f9f9; padding: 20px; text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: bold; color: #333; margin: 20px 0;">
+              ${otp}
+            </div>
+            <p>This code will expire in 10 minutes.</p>
+            <p>If you didn't request this, please ignore this email.</p>
+            <p>Best,<br/>The PawMira Team</p>
           </div>
-          <p>This code will expire in 10 minutes.</p>
-          <p>If you didn't request this, please ignore this email.</p>
-          <p>Best,<br/>The PawMira Team</p>
-        </div>
-      `,
-    }).then(() => {
+        `,
+      });
       console.log(`[AUTH] OTP email successfully sent to ${email}`);
-    }).catch(err => {
+      res.status(200).json({ message: 'OTP sent to email. Please verify.' });
+    } catch (err) {
       console.error(`[EMAIL_ERROR] Failed to send OTP to ${email}: ${err.message}`);
-    });
-
-    res.status(200).json({ message: 'OTP sent to email. Please verify.' });
+      return res.status(500).json({ message: 'Failed to send OTP email. Please check your email address and try again.' });
+    }
   } catch (error) {
     console.error(`[AUTH_ERROR] register: ${error.message}`);
     res.status(500).json({ message: 'Server error during registration' });
