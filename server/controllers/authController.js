@@ -8,14 +8,23 @@ const { validateEmail } = require('../utils/emailValidator');
 // Force IPv4 because Render instances do not support outgoing IPv6 for SMTP
 dns.setDefaultResultOrder('ipv4first');
 
-// Create transporter using Gmail
+// Create transporter using Gmail with explicit SMTP settings for Render compatibility
 const createTransporter = () => {
   return nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // SSL
+    family: 4,    // Force IPv4 — Render cannot reach IPv6 addresses
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
+    pool: true,              // reuse connections
+    maxConnections: 3,
+    connectionTimeout: 10000, // 10s to establish connection
+    greetingTimeout: 10000,   // 10s for SMTP greeting
+    socketTimeout: 15000,     // 15s for socket inactivity
+    logger: process.env.NODE_ENV !== 'production', // log SMTP in dev
   });
 };
 
@@ -103,7 +112,7 @@ exports.register = async (req, res) => {
       res.status(200).json({ message: 'OTP sent to email. Please verify.' });
     } catch (err) {
       console.error(`[EMAIL_ERROR] Failed to send OTP to ${email}: ${err.message}`);
-      return res.status(500).json({ message: 'Failed to send OTP email. Please check your email address and try again.' });
+      return res.status(500).json({ message: 'Failed to send OTP email. Please check your email address and try again.', error: err.message });
     }
   } catch (error) {
     console.error(`[AUTH_ERROR] register: ${error.message}`);
