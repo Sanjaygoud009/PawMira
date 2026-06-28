@@ -1,55 +1,15 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const nodemailer = require('nodemailer');
 const crypto = require('crypto');
-const dns = require('dns');
-const { promisify } = require('util');
 const { validateEmail } = require('../utils/emailValidator');
-
-// Force IPv4 because Render's free tier cannot reach IPv6 addresses
-dns.setDefaultResultOrder('ipv4first');
-const resolve4 = promisify(dns.resolve4);
-
-// Resolve smtp.gmail.com to an IPv4 address to avoid ENETUNREACH on Render
-const createTransporter = async () => {
-  let host = 'smtp.gmail.com';
-  try {
-    const addresses = await resolve4('smtp.gmail.com');
-    if (addresses.length > 0) {
-      host = addresses[0];
-      console.log(`[OTP] SMTP resolved to IPv4: ${host}`);
-    }
-  } catch (e) {
-    console.warn(`[OTP] IPv4 DNS lookup failed, using hostname: ${e.message}`);
-  }
-
-  return nodemailer.createTransport({
-    host,
-    port: 465,
-    secure: true,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-    tls: {
-      servername: 'smtp.gmail.com',
-    },
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
-  });
-};
+const { sendEmail, getTransportName } = require('../services/emailService');
 
 // Send OTP email in background — logs each stage, clears OTP on failure
 const sendOTPEmail = async (userId, toEmail, userName, userRole, otp) => {
-  console.log(`[OTP] Background email started for ${toEmail}`);
+  console.log(`[OTP] Background email started for ${toEmail} (transport: ${getTransportName()})`);
 
   try {
-    const transporter = await createTransporter();
-    console.log(`[OTP] SMTP connected`);
-
-    const info = await transporter.sendMail({
-      from: `"PawMira" <${process.env.EMAIL_USER}>`,
+    const result = await sendEmail({
       to: toEmail,
       subject: `🐾 Verify Your PawMira Account`,
       html: `
@@ -67,7 +27,7 @@ const sendOTPEmail = async (userId, toEmail, userName, userRole, otp) => {
       `,
     });
 
-    console.log(`[OTP] Email sent successfully to ${toEmail} (messageId: ${info.messageId})`);
+    console.log(`[OTP] Email sent successfully to ${toEmail} (messageId: ${result.messageId})`);
   } catch (err) {
     console.error(`[OTP ERROR] Failed to send to ${toEmail}: ${err.message}`);
 
@@ -85,16 +45,14 @@ const sendOTPEmail = async (userId, toEmail, userName, userRole, otp) => {
 
 exports.testEmail = async (req, res) => {
   try {
-    const transporter = await createTransporter();
-    const info = await transporter.sendMail({
-      from: `"PawMira" <${process.env.EMAIL_USER}>`,
-      to: process.env.EMAIL_USER,
-      subject: "Test from Render",
-      text: "If you see this, Nodemailer is working on Render!"
+    const result = await sendEmail({
+      to: process.env.EMAIL_USER || 'test@example.com',
+      subject: 'Test from Render',
+      text: `If you see this, email sending works on Render! (transport: ${getTransportName()})`,
     });
-    res.json({ success: true, info });
+    res.json({ success: true, transport: getTransportName(), messageId: result.messageId });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message, stack: err.stack });
+    res.status(500).json({ success: false, transport: getTransportName(), error: err.message });
   }
 };
 
@@ -277,9 +235,7 @@ exports.forgotPassword = async (req, res) => {
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
-    const transporter = await createTransporter();
-    await transporter.sendMail({
-      from: `"PawMira" <${process.env.EMAIL_USER}>`,
+    await sendEmail({
       to: user.email,
       subject: `🐾 Password Reset Request`,
       html: `
