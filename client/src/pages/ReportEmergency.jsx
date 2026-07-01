@@ -15,10 +15,10 @@ import {
   MapPin,
   Camera,
   Heart,
-  ArrowLeft,
-  ArrowRight,
   Sparkles,
-  Info
+  Info,
+  X,
+  Bot
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ImageUpload from '../components/report/ImageUpload';
@@ -45,10 +45,7 @@ export default function ReportEmergency() {
   const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-
-  // Stepper state
-  const [step, setStep] = useState(1);
-  const [direction, setDirection] = useState(0); // 1 = forward, -1 = backward
+  const [aiError, setAiError] = useState(false);
 
   const [form, setForm] = useState({
     reporter_name: '',
@@ -127,50 +124,24 @@ export default function ReportEmergency() {
     }
   }, [isListening]);
 
-  // Validation function per step
-  const validateStep = (stepNumber) => {
+  const validateForm = () => {
     const errs = {};
-    if (stepNumber === 1) {
-      if (!form.issue_type) errs.issue_type = 'Please select the situation type.';
-      if (form.issue_type === 'other' && !form.other_issue_type?.trim()) errs.other_issue_type = 'Please specify the situation.';
-      if (!form.priority) errs.priority = 'Please select an emergency level.';
-    } else if (stepNumber === 2) {
-      if (!form.location) errs.location = 'Please pin the animal\'s location on the map.';
-    } else if (stepNumber === 3) {
-      if (!form.image) errs.image = 'An image of the animal is required to help rescue teams.';
-    } else if (stepNumber === 4) {
-      if (!form.reporter_phone.trim()) {
-        errs.reporter_phone = 'Phone number is required so we can contact you.';
-      } else if (!/^[+]?\d{10,15}$/.test(form.reporter_phone.replace(/\s/g, ''))) {
-        errs.reporter_phone = 'Please enter a valid phone number (10-15 digits).';
-      }
+    if (!form.issue_type) errs.issue_type = 'Please select the situation type.';
+    if (form.issue_type === 'other' && !form.other_issue_type?.trim()) errs.other_issue_type = 'Please specify the situation.';
+    if (!form.priority) errs.priority = 'Please select an emergency level.';
+    if (!form.location) errs.location = 'Please pin the animal\'s location on the map.';
+    if (!form.image) errs.image = 'An image of the animal is required to help rescue teams.';
+    if (!form.reporter_phone.trim()) {
+      errs.reporter_phone = 'Phone number is required so we can contact you.';
+    } else if (!/^[+]?\d{10,15}$/.test(form.reporter_phone.replace(/\s/g, ''))) {
+      errs.reporter_phone = 'Please enter a valid phone number (10-15 digits).';
     }
     return errs;
   };
 
-  const handleNext = () => {
-    const errs = validateStep(step);
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
-      // Toast the first error
-      const message = Object.values(errs)[0];
-      toast.error(message);
-      return;
-    }
-    setErrors({});
-    setDirection(1);
-    setStep(prev => prev + 1);
-  };
-
-  const handleBack = () => {
-    setErrors({});
-    setDirection(-1);
-    setStep(prev => prev - 1);
-  };
-
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
-    const errs = validateStep(4);
+    const errs = validateForm();
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       toast.error(Object.values(errs)[0]);
@@ -203,48 +174,28 @@ export default function ReportEmergency() {
       toast.success('Report submitted successfully!');
       setTimeout(() => navigate('/'), 3000);
     } catch (err) {
-      const errorData = err.response?.data;
-      let errorMessage = errorData?.message || 'Something went wrong. Try again.';
-      if (errorData?.reason) {
-        errorMessage += `\nReason: ${errorData.reason}`;
+      const errorData = err.response?.data || {};
+      const message = String(errorData?.message || '');
+      const reason = String(errorData?.reason || '');
+
+      // Broadly catch any AI detection failures or Gemini API system errors
+      if (
+        message.includes('AI could not detect') || 
+        message.includes('animal') ||
+        reason.includes('SYSTEM ERROR')
+      ) {
+        setAiError(true);
+      } else {
+        let errorMessage = message || 'Something went wrong. Try again.';
+        if (errorData?.reason) {
+          errorMessage += `\nReason: ${errorData.reason}`;
+        }
+        toast.error(errorMessage, { duration: 8000 });
       }
-      toast.error(errorMessage, { duration: 8000 });
     } finally {
       setSubmitting(false);
     }
   };
-
-  // Framer Motion Slider variants
-  const slideVariants = {
-    enter: (dir) => ({
-      x: dir > 0 ? 120 : -120,
-      opacity: 0,
-    }),
-    center: {
-      x: 0,
-      opacity: 1,
-      transition: {
-        x: { type: 'spring', stiffness: 350, damping: 32 },
-        opacity: { duration: 0.2 },
-      },
-    },
-    exit: (dir) => ({
-      x: dir < 0 ? 120 : -120,
-      opacity: 0,
-      transition: {
-        x: { type: 'spring', stiffness: 350, damping: 32 },
-        opacity: { duration: 0.2 },
-      },
-    }),
-  };
-
-  // Step information
-  const stepsConfig = [
-    { label: 'Situation', icon: AlertTriangle },
-    { label: 'Location', icon: MapPin },
-    { label: 'Photo', icon: Camera },
-    { label: 'Contact', icon: Phone },
-  ];
 
   if (submitted) {
     return (
@@ -274,482 +225,376 @@ export default function ReportEmergency() {
     );
   }
 
-  // Get selected details labels
   const selectedIssue = issueTypes.find(t => t.value === form.issue_type);
   const selectedSeverity = emergencyLevels.find(l => l.value === form.priority);
 
   return (
-    <div className="min-h-screen bg-white pb-24 sm:pb-32 pt-[64px] sm:pt-[72px] font-sans">
-      {/* Sleek Minimal Header */}
-      <div className="bg-white border-b border-slate-100 py-6 sm:py-10 relative overflow-hidden">
+    <>
+      <AnimatePresence>
+        {aiError && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="bg-white rounded-[2rem] p-8 max-w-sm w-full shadow-2xl relative"
+            >
+              <button 
+                onClick={() => setAiError(false)}
+                className="absolute right-6 top-6 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-6 text-red-500 border border-red-100">
+                <Bot size={32} />
+              </div>
+              
+              <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">AI Detection Failed</h3>
+              <p className="text-slate-500 font-medium leading-relaxed mb-8">
+                Our AI couldn't detect an animal in the image you uploaded. Please try a clearer photo so responders know what to look for!
+              </p>
+              
+              <button
+                onClick={() => setAiError(false)}
+                className="w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors active:scale-95 shadow-lg shadow-slate-900/20"
+              >
+                Try Again
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="min-h-screen bg-slate-50 pb-24 sm:pb-32 pt-[64px] sm:pt-[72px] font-sans">
+      <div className="bg-white border-b border-slate-100/60 py-4 sm:py-10 relative overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.01)] z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-50 text-primary border border-orange-100 mb-3 sm:mb-4">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-50 text-primary border border-orange-100 mb-2 sm:mb-4">
               <Heart size={14} className="fill-primary text-primary" />
               <span className="text-[11px] font-extrabold uppercase tracking-wider">Emergency Alert Desk</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight leading-none">
+            <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight leading-none">
               Report an Emergency
             </h1>
-            <p className="text-slate-500 font-medium mt-2 sm:mt-3 text-sm sm:text-base max-w-xl">
+            <p className="text-slate-500 font-medium mt-1 sm:mt-3 text-sm sm:text-base max-w-xl">
               Report an animal in distress. Your contribution alerts local shelters and rescue teams immediately.
             </p>
           </motion.div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-4 sm:mt-10">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-3 sm:mt-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
           
-          {/* LEFT PANEL: Wizard Steps Card */}
-          <div className="lg:col-span-8 bg-white border border-slate-100 rounded-3xl sm:rounded-[2rem] shadow-[0_8px_30px_rgba(0,0,0,0.02)] p-5 sm:p-8">
+          {/* MAIN FORM */}
+          <div className="lg:col-span-8 space-y-4 sm:space-y-8">
             
-            {/* Stepper Progress Indicator */}
-            <div className="mb-8 sm:mb-10">
-              {/* Desktop Steps Indicator */}
-              <div className="hidden sm:flex items-center justify-between relative px-2">
-                {stepsConfig.map((s, idx) => {
-                  const stepNum = idx + 1;
-                  const isCompleted = step > stepNum;
-                  const isActive = step === stepNum;
-                  const StepIcon = s.icon;
-                  
-                  return (
-                    <div key={idx} className="flex flex-col items-center relative z-10 flex-1">
-                      <button
+            {/* SITUATION & SEVERITY */}
+            <div className="bg-white border border-slate-100/50 rounded-2xl sm:rounded-[2rem] shadow-sm sm:shadow-[0_8px_30px_rgba(0,0,0,0.02)] p-4 sm:p-8 space-y-5 sm:space-y-6">
+              <div>
+                <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <AlertTriangle className="text-primary" size={24} /> What is the animal's condition?
+                </h2>
+                <p className="text-sm text-slate-500 mt-1">Select the issue type and emergency level.</p>
+              </div>
+
+              <div className="space-y-3">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Situation Type <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {issueTypes.map((type) => {
+                    const isSelected = form.issue_type === type.value;
+                    return (
+                      <motion.button
+                        key={type.value}
                         type="button"
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => {
-                          // Allow clicking back to already visited steps
-                          if (stepNum < step) {
-                            setDirection(-1);
-                            setStep(stepNum);
-                          }
+                          setForm(f => ({ ...f, issue_type: type.value }));
+                          setErrors(e => ({ ...e, issue_type: undefined }));
                         }}
-                        disabled={stepNum >= step}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 relative border ${
-                          isCompleted
-                            ? 'bg-primary border-primary text-white shadow-sm'
-                            : isActive
-                              ? 'bg-white border-primary text-primary shadow-md shadow-orange-100 ring-4 ring-orange-50'
-                              : 'bg-slate-50 border-slate-200 text-slate-400'
+                        className={`relative flex items-center p-3 sm:p-4 rounded-xl sm:rounded-2xl transition-all duration-300 border text-left ${
+                          isSelected 
+                            ? 'border-primary bg-orange-50/30 shadow-sm ring-1 ring-primary/20' 
+                            : 'border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50/50'
                         }`}
                       >
-                        {isCompleted ? (
-                          <CheckCircle size={20} className="stroke-[3]" />
-                        ) : (
-                          <StepIcon size={18} />
-                        )}
-                      </button>
-                      
-                      <span className={`text-xs font-bold mt-2.5 transition-colors duration-300 ${
-                        isActive ? 'text-slate-900 font-extrabold' : 'text-slate-400'
-                      }`}>
-                        {s.label}
-                      </span>
-
-                      {/* Connective Line (Desktop) */}
-                      {idx < stepsConfig.length - 1 && (
-                        <div className="absolute left-[calc(50%+24px)] right-[calc(-50%+24px)] top-6 h-[2px] bg-slate-100 -z-10">
-                          <motion.div 
-                            initial={{ width: 0 }}
-                            animate={{ width: step > stepNum ? '100%' : '0%' }}
-                            transition={{ duration: 0.3 }}
-                            className="h-full bg-primary"
-                          />
+                        <span className="text-2xl sm:text-3xl mr-3 sm:mr-4 shrink-0 block">{type.label.split(' ')[0]}</span>
+                        <div className="flex-1 pr-6">
+                          <p className={`font-bold text-sm ${isSelected ? 'text-primary' : 'text-slate-900'}`}>
+                            {type.label.split(' ').slice(1).join(' ')}
+                          </p>
+                          <p className="text-[11px] font-medium text-slate-400 mt-0.5">
+                            {type.desc}
+                          </p>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Mobile Steps Indicator */}
-              <div className="sm:hidden space-y-3">
-                <div className="flex justify-between items-center text-xs font-bold text-slate-400">
-                  <span className="text-primary font-black uppercase tracking-wider">
-                    Step {step} of 4
-                  </span>
-                  <span className="text-slate-700">
-                    {stepsConfig[step - 1].label}
-                  </span>
-                </div>
-                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-primary"
-                    animate={{ width: `${(step / 4) * 100}%` }}
-                    transition={{ duration: 0.3 }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Step Content Area with Animating Slide */}
-            <div className="overflow-hidden relative min-h-[300px] sm:min-h-[350px] flex flex-col justify-between">
-              <AnimatePresence mode="wait" custom={direction}>
-                <motion.div
-                  key={step}
-                  custom={direction}
-                  variants={slideVariants}
-                  initial="enter"
-                  animate="center"
-                  exit="exit"
-                  className="w-full flex-1 flex flex-col"
-                >
-                  
-                  {/* STEP 1: SITUATION & SEVERITY */}
-                  {step === 1 && (
-                    <div className="space-y-8 flex-1">
-                      {/* Subtitle */}
-                      <div>
-                        <h2 className="text-xl font-bold text-slate-900">What is the animal's condition?</h2>
-                        <p className="text-sm text-slate-500 mt-1">Select the issue type and emergency level.</p>
-                      </div>
-
-                      {/* Issue Types Grid */}
-                      <div className="space-y-3">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Situation Type <span className="text-red-500">*</span>
-                        </label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {issueTypes.map((type) => {
-                            const isSelected = form.issue_type === type.value;
-                            return (
-                              <motion.button
-                                key={type.value}
-                                type="button"
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => {
-                                  setForm(f => ({ ...f, issue_type: type.value }));
-                                  setErrors(e => ({ ...e, issue_type: undefined }));
-                                }}
-                                className={`relative flex items-center p-4 rounded-2xl transition-all duration-300 border text-left ${
-                                  isSelected 
-                                    ? 'border-primary bg-orange-50/30 shadow-sm' 
-                                    : 'border-slate-100 bg-white hover:border-slate-300 hover:bg-slate-50/50'
-                                }`}
-                              >
-                                <span className="text-3xl mr-4 shrink-0 block">{type.label.split(' ')[0]}</span>
-                                <div className="flex-1 pr-6">
-                                  <p className={`font-bold text-sm ${isSelected ? 'text-primary' : 'text-slate-900'}`}>
-                                    {type.label.split(' ').slice(1).join(' ')}
-                                  </p>
-                                  <p className="text-[11px] font-medium text-slate-400 mt-0.5">
-                                    {type.desc}
-                                  </p>
-                                </div>
-                                
-                                {/* Checked circle dot indicator */}
-                                <div className={`absolute right-4 w-4 h-4 rounded-full border flex items-center justify-center bg-white transition-all ${
-                                  isSelected ? 'border-primary' : 'border-slate-200'
-                                }`}>
-                                  {isSelected && (
-                                    <motion.div
-                                      initial={{ scale: 0 }}
-                                      animate={{ scale: 1 }}
-                                      className="w-2 h-2 rounded-full bg-primary"
-                                    />
-                                  )}
-                                </div>
-                              </motion.button>
-                            );
-                          })}
-                        </div>
-                        {errors.issue_type && (
-                          <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-xs font-semibold text-red-500 mt-1">
-                            {errors.issue_type}
-                          </motion.p>
-                        )}
-                        {/* Other issue text input */}
-                        <AnimatePresence>
-                          {form.issue_type === 'other' && (
+                        
+                        <div className={`absolute right-4 w-4 h-4 rounded-full border flex items-center justify-center bg-white transition-all ${
+                          isSelected ? 'border-primary' : 'border-slate-200'
+                        }`}>
+                          {isSelected && (
                             <motion.div
-                              initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                              animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
-                              exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="relative group">
-                                <input
-                                  type="text"
-                                  placeholder="Please specify the situation..."
-                                  value={form.other_issue_type}
-                                  onChange={(e) => {
-                                    setForm(f => ({ ...f, other_issue_type: e.target.value }));
-                                    setErrors(er => ({ ...er, other_issue_type: undefined }));
-                                  }}
-                                  disabled={submitting}
-                                  className={`w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-transparent text-sm font-medium text-slate-900 placeholder:text-slate-400 transition-all focus:outline-none focus:border-primary focus:bg-white ${
-                                    errors.other_issue_type ? '!border-red-200 !bg-red-50/50' : ''
-                                  }`}
-                                />
-                              </div>
-                              {errors.other_issue_type && (
-                                <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-xs font-semibold text-red-500 mt-1">
-                                  {errors.other_issue_type}
-                                </motion.p>
-                              )}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-
-                      {/* Severity Pill Selector */}
-                      <div className="space-y-3 pt-2">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Severity Level <span className="text-red-500">*</span>
-                        </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          {emergencyLevels.map((level) => {
-                            const isSelected = form.priority === level.value;
-                            return (
-                              <motion.button
-                                key={level.value}
-                                type="button"
-                                whileTap={{ scale: 0.98 }}
-                                onClick={() => {
-                                  setForm(f => ({ ...f, priority: level.value }));
-                                  setErrors(e => ({ ...e, priority: undefined }));
-                                }}
-                                className={`flex flex-col items-center justify-center p-4 rounded-2xl border transition-all duration-300 ${
-                                  isSelected 
-                                    ? `border-transparent shadow-md scale-[1.02] ${level.active} ring-4 ring-orange-50`
-                                    : 'border-slate-100 bg-white hover:border-slate-300 text-slate-500 hover:bg-slate-50'
-                                }`}
-                              >
-                                {!isSelected && <span className={`mb-2 h-1.5 w-6 rounded-full ${level.color} opacity-40`} />}
-                                <span className={`text-sm font-bold tracking-tight ${isSelected ? 'text-white' : 'text-slate-900'}`}>
-                                  {level.label}
-                                </span>
-                                <span className={`mt-0.5 text-[10px] font-bold uppercase tracking-wider text-center ${
-                                  isSelected ? 'text-white/85' : 'text-slate-400'
-                                }`}>
-                                  {level.desc}
-                                </span>
-                              </motion.button>
-                            );
-                          })}
-                        </div>
-                        {errors.priority && (
-                          <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-xs font-semibold text-red-500 mt-1">
-                            {errors.priority}
-                          </motion.p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* STEP 2: LOCATION */}
-                  {step === 2 && (
-                    <div className="space-y-6 flex-1">
-                      <div>
-                        <h2 className="text-xl font-bold text-slate-900">Where is the animal?</h2>
-                        <p className="text-sm text-slate-500 mt-1">
-                          Pin the location on the map. Drag the marker to adjust coordinates.
-                        </p>
-                      </div>
-
-                      <div className="bg-slate-50 rounded-2xl p-2 border border-slate-100/50">
-                        <LocationPicker
-                          onLocationSelect={(loc) => {
-                            setForm(f => ({ ...f, location: loc }));
-                            setErrors(e => ({ ...e, location: undefined }));
-                          }}
-                          disabled={submitting}
-                        />
-                      </div>
-                      {errors.location && (
-                        <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-xs font-semibold text-red-500 mt-1">
-                          {errors.location}
-                        </motion.p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* STEP 3: PHOTO */}
-                  {step === 3 && (
-                    <div className="space-y-6 flex-1">
-                      <div>
-                        <h2 className="text-xl font-bold text-slate-900">Add a photo</h2>
-                        <p className="text-sm text-slate-500 mt-1">
-                          Upload a photo showing the animal's status. It will help responders prepare.
-                        </p>
-                      </div>
-
-                      <div className="bg-slate-50 rounded-2xl p-2 border border-slate-100/50">
-                        <ImageUpload
-                          value={form.image}
-                          onImageSelect={(img) => {
-                            setForm(f => ({ ...f, image: img }));
-                            setErrors(e => ({ ...e, image: undefined }));
-                          }}
-                          disabled={submitting}
-                        />
-                      </div>
-                      {errors.image && (
-                        <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="text-xs font-semibold text-red-500 mt-1">
-                          {errors.image}
-                        </motion.p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* STEP 4: CONTACT & DETAILS */}
-                  {step === 4 && (
-                    <div className="space-y-6 flex-1">
-                      <div>
-                        <h2 className="text-xl font-bold text-slate-900">Contact & Description</h2>
-                        <p className="text-sm text-slate-500 mt-1">
-                          Provide details so our rescue team can follow up if needed.
-                        </p>
-                      </div>
-
-                      <div className="space-y-5">
-                        {/* Grid for Contact Details */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {/* Reporter Phone */}
-                          <div className="space-y-2">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-                              Phone Number <span className="text-red-500">*</span>
-                            </label>
-                            <div className="relative group">
-                              <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
-                              <input
-                                type="tel"
-                                placeholder="+91 99999 99999"
-                                value={form.reporter_phone}
-                                onChange={(e) => {
-                                  setForm(f => ({ ...f, reporter_phone: e.target.value }));
-                                  setErrors(er => ({ ...er, reporter_phone: undefined }));
-                                }}
-                                disabled={submitting}
-                                className={`w-full pl-11 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-transparent text-sm font-bold text-slate-900 placeholder:text-slate-400 transition-all focus:outline-none focus:border-primary focus:bg-white ${
-                                  errors.reporter_phone ? '!border-red-200 !bg-red-50/50' : ''
-                                }`}
-                              />
-                            </div>
-                            {errors.reporter_phone && (
-                              <p className="text-xs font-semibold text-red-500 mt-1">{errors.reporter_phone}</p>
-                            )}
-                          </div>
-
-                          {/* Reporter Name */}
-                          <div className="space-y-2">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-                              Your Name <span className="text-slate-400 font-medium">(optional)</span>
-                            </label>
-                            <div className="relative group">
-                              <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
-                              <input
-                                type="text"
-                                placeholder="Anonymous Hero"
-                                value={form.reporter_name}
-                                onChange={(e) => setForm(f => ({ ...f, reporter_name: e.target.value }))}
-                                disabled={submitting}
-                                className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-transparent text-sm font-bold text-slate-900 placeholder:text-slate-400 transition-all focus:outline-none focus:border-primary focus:bg-white"
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Situation Details */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-                              Situation Details <span className="text-slate-400 font-medium">(optional)</span>
-                            </label>
-                            <button
-                              type="button"
-                              onClick={toggleListening}
-                              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold transition-all ${
-                                isListening 
-                                  ? 'bg-red-50 text-red-600 animate-pulse border border-red-100' 
-                                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-transparent'
-                              }`}
-                            >
-                              {isListening ? (
-                                <><MicOff size={12} /> Stop</>
-                              ) : (
-                                <><Mic size={12} /> Voice Input</>
-                              )}
-                            </button>
-                          </div>
-                          <div className="relative group">
-                            <FileText size={16} className="absolute left-4 top-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                            <textarea
-                              placeholder="Any extra context (e.g. landmark, behavior, species details)..."
-                              rows={4}
-                              value={form.description}
-                              onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
-                              disabled={submitting}
-                              className={`w-full pl-11 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-transparent text-sm font-medium text-slate-900 placeholder:text-slate-400 transition-all focus:outline-none focus:border-primary focus:bg-white resize-none ${
-                                isListening ? '!border-red-200 !bg-red-50/50' : ''
-                              }`}
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="w-2 h-2 rounded-full bg-primary"
                             />
-                          </div>
+                          )}
                         </div>
-                      </div>
-                    </div>
-                  )}
-
-                </motion.div>
-              </AnimatePresence>
-
-              {/* Step Navigation Controls Footer */}
-              <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-slate-100 flex items-center justify-between gap-3">
-                {step > 1 ? (
-                  <button
-                    type="button"
-                    onClick={handleBack}
-                    disabled={submitting}
-                    className="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 px-5 py-3.5 sm:py-3 border border-slate-200 text-slate-600 rounded-xl font-bold text-sm bg-white hover:bg-slate-50 active:scale-95 transition-all disabled:opacity-50"
-                  >
-                    <ArrowLeft size={16} />
-                    Back
-                  </button>
-                ) : (
-                  <div className="hidden sm:block"></div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+                {errors.issue_type && (
+                  <p className="text-xs font-semibold text-red-500 mt-1">{errors.issue_type}</p>
                 )}
+                
+                <AnimatePresence>
+                  {form.issue_type === 'other' && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                      animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
+                      exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="relative group">
+                        <input
+                          type="text"
+                          placeholder="Please specify the situation..."
+                          value={form.other_issue_type}
+                          onChange={(e) => {
+                            setForm(f => ({ ...f, other_issue_type: e.target.value }));
+                            setErrors(er => ({ ...er, other_issue_type: undefined }));
+                          }}
+                          disabled={submitting}
+                          className={`w-full px-4 py-3 rounded-xl bg-slate-50 border-2 border-transparent text-sm font-medium text-slate-900 placeholder:text-slate-400 transition-all focus:outline-none focus:border-primary focus:bg-white ${
+                            errors.other_issue_type ? '!border-red-200 !bg-red-50/50' : ''
+                          }`}
+                        />
+                      </div>
+                      {errors.other_issue_type && (
+                        <p className="text-xs font-semibold text-red-500 mt-1">{errors.other_issue_type}</p>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
-                {step < 4 ? (
-                  <motion.button
-                    type="button"
-                    whileHover={{ scale: 1.01 }}
-                    whileTap={{ scale: 0.99 }}
-                    onClick={handleNext}
-                    className={`flex-1 sm:flex-none inline-flex justify-center items-center gap-2 px-6 py-3.5 sm:py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-sm hover:bg-primary-hover hover:shadow-md active:scale-95 transition-all ${step === 1 ? 'w-full sm:w-auto' : ''}`}
-                  >
-                    Continue
-                    <ArrowRight size={16} />
-                  </motion.button>
-                ) : (
-                  <motion.button
-                    type="button"
-                    whileHover={{ scale: 1.01 }}
-                    whileTap={{ scale: 0.99 }}
-                    onClick={handleSubmit}
-                    disabled={submitting}
-                    className="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 px-6 py-3.5 sm:py-3 bg-primary text-white rounded-xl font-bold text-sm shadow-md shadow-orange-100 hover:bg-primary-hover active:scale-95 transition-all disabled:opacity-75"
-                  >
-                    {submitting ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        Submitting...
-                      </>
-                    ) : (
-                      <>
-                        <Send size={16} />
-                        Submit Report
-                      </>
-                    )}
-                  </motion.button>
+              <div className="space-y-3 pt-2 border-t border-slate-100">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mt-4">
+                  Severity Level <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {emergencyLevels.map((level) => {
+                    const isSelected = form.priority === level.value;
+                    return (
+                      <motion.button
+                        key={level.value}
+                        type="button"
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          setForm(f => ({ ...f, priority: level.value }));
+                          setErrors(e => ({ ...e, priority: undefined }));
+                        }}
+                        className={`flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl sm:rounded-2xl border transition-all duration-300 ${
+                          isSelected 
+                            ? `border-transparent shadow-md scale-[1.02] ${level.active} ring-2 sm:ring-4 ring-orange-50`
+                            : 'border-slate-100 bg-white hover:border-slate-300 text-slate-500 hover:bg-slate-50'
+                        }`}
+                      >
+                        {!isSelected && <span className={`mb-2 h-1.5 w-6 rounded-full ${level.color} opacity-40`} />}
+                        <span className={`text-sm font-bold tracking-tight ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                          {level.label}
+                        </span>
+                        <span className={`mt-0.5 text-[10px] font-bold uppercase tracking-wider text-center ${
+                          isSelected ? 'text-white/85' : 'text-slate-400'
+                        }`}>
+                          {level.desc}
+                        </span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+                {errors.priority && (
+                  <p className="text-xs font-semibold text-red-500 mt-1">{errors.priority}</p>
                 )}
               </div>
             </div>
 
+            {/* LOCATION */}
+            <div className="bg-white border border-slate-100/50 rounded-2xl sm:rounded-[2rem] shadow-sm sm:shadow-[0_8px_30px_rgba(0,0,0,0.02)] p-4 sm:p-8 space-y-5 sm:space-y-6">
+              <div>
+                <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <MapPin className="text-primary" size={24} /> Where is the animal?
+                </h2>
+                <p className="text-sm text-slate-500 mt-1">Pin the location on the map. Drag the marker to adjust coordinates.</p>
+              </div>
+
+              <div className="bg-slate-50 rounded-2xl p-2 border border-slate-100/50">
+                <LocationPicker
+                  onLocationSelect={(loc) => {
+                    setForm(f => ({ ...f, location: loc }));
+                    setErrors(e => ({ ...e, location: undefined }));
+                  }}
+                  disabled={submitting}
+                />
+              </div>
+              {errors.location && (
+                <p className="text-xs font-semibold text-red-500 mt-1">{errors.location}</p>
+              )}
+            </div>
+
+            {/* PHOTO */}
+            <div className="bg-white border border-slate-100/50 rounded-2xl sm:rounded-[2rem] shadow-sm sm:shadow-[0_8px_30px_rgba(0,0,0,0.02)] p-4 sm:p-8 space-y-5 sm:space-y-6">
+              <div>
+                <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <Camera className="text-primary" size={24} /> Add a photo
+                </h2>
+                <p className="text-sm text-slate-500 mt-1">Upload a photo showing the animal's status. It will help responders prepare.</p>
+              </div>
+
+              <div className="bg-slate-50 rounded-2xl p-2 border border-slate-100/50">
+                <ImageUpload
+                  value={form.image}
+                  onImageSelect={(img) => {
+                    setForm(f => ({ ...f, image: img }));
+                    setErrors(e => ({ ...e, image: undefined }));
+                  }}
+                  disabled={submitting}
+                />
+              </div>
+              {errors.image && (
+                <p className="text-xs font-semibold text-red-500 mt-1">{errors.image}</p>
+              )}
+            </div>
+
+            {/* CONTACT & DETAILS */}
+            <div className="bg-white border border-slate-100/50 rounded-2xl sm:rounded-[2rem] shadow-sm sm:shadow-[0_8px_30px_rgba(0,0,0,0.02)] p-4 sm:p-8 space-y-5 sm:space-y-6">
+              <div>
+                <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <Phone className="text-primary" size={24} /> Contact & Description
+                </h2>
+                <p className="text-sm text-slate-500 mt-1">Provide details so our rescue team can follow up if needed.</p>
+              </div>
+
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Phone Number <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative group">
+                      <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
+                      <input
+                        type="tel"
+                        placeholder="+91 99999 99999"
+                        value={form.reporter_phone}
+                        onChange={(e) => {
+                          setForm(f => ({ ...f, reporter_phone: e.target.value }));
+                          setErrors(er => ({ ...er, reporter_phone: undefined }));
+                        }}
+                        disabled={submitting}
+                        className={`w-full pl-11 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-transparent text-sm font-bold text-slate-900 placeholder:text-slate-400 transition-all focus:outline-none focus:border-primary focus:bg-white ${
+                          errors.reporter_phone ? '!border-red-200 !bg-red-50/50' : ''
+                        }`}
+                      />
+                    </div>
+                    {errors.reporter_phone && (
+                      <p className="text-xs font-semibold text-red-500 mt-1">{errors.reporter_phone}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Your Name <span className="text-slate-400 font-medium">(optional)</span>
+                    </label>
+                    <div className="relative group">
+                      <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
+                      <input
+                        type="text"
+                        placeholder="Anonymous Hero"
+                        value={form.reporter_name}
+                        onChange={(e) => setForm(f => ({ ...f, reporter_name: e.target.value }))}
+                        disabled={submitting}
+                        className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-transparent text-sm font-bold text-slate-900 placeholder:text-slate-400 transition-all focus:outline-none focus:border-primary focus:bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Situation Details <span className="text-slate-400 font-medium">(optional)</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={toggleListening}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold transition-all ${
+                        isListening 
+                          ? 'bg-red-50 text-red-600 animate-pulse border border-red-100' 
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-transparent'
+                      }`}
+                    >
+                      {isListening ? (
+                        <><MicOff size={12} /> Stop</>
+                      ) : (
+                        <><Mic size={12} /> Voice Input</>
+                      )}
+                    </button>
+                  </div>
+                  <div className="relative group">
+                    <FileText size={16} className="absolute left-4 top-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                    <textarea
+                      placeholder="Any extra context (e.g. landmark, behavior, species details)..."
+                      rows={4}
+                      value={form.description}
+                      onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
+                      disabled={submitting}
+                      className={`w-full pl-11 pr-4 py-3 rounded-xl bg-slate-50 border-2 border-transparent text-sm font-medium text-slate-900 placeholder:text-slate-400 transition-all focus:outline-none focus:border-primary focus:bg-white resize-none ${
+                        isListening ? '!border-red-200 !bg-red-50/50' : ''
+                      }`}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SUBMIT BUTTON */}
+            <div className="pt-2 sm:pt-4 pb-8 flex justify-end">
+              <motion.button
+                type="button"
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-6 sm:px-8 py-3.5 sm:py-4 bg-primary text-white rounded-xl sm:rounded-2xl font-black text-base sm:text-lg shadow-md shadow-orange-100 hover:bg-primary-hover active:scale-95 transition-all disabled:opacity-75"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 size={20} className="animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send size={20} />
+                    Submit Emergency Report
+                  </>
+                )}
+              </motion.button>
+            </div>
+            
           </div>
 
           {/* RIGHT PANEL: Live Summary Preview (Hidden on Mobile) */}
@@ -765,10 +610,7 @@ export default function ReportEmergency() {
               </div>
             </div>
 
-            {/* Live Report card layout */}
             <div className="space-y-5">
-              
-              {/* Media Preview inside Card */}
               <div className="relative rounded-2xl overflow-hidden bg-slate-50 border border-slate-100/50 aspect-video flex flex-col items-center justify-center text-slate-400">
                 {form.image ? (
                   <img 
@@ -784,10 +626,7 @@ export default function ReportEmergency() {
                 )}
               </div>
 
-              {/* Status & Attributes */}
               <div className="space-y-3">
-                
-                {/* Situation */}
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
                     Animal Situation
@@ -801,7 +640,6 @@ export default function ReportEmergency() {
                   )}
                 </div>
 
-                {/* Severity */}
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
                     Emergency Level
@@ -823,7 +661,6 @@ export default function ReportEmergency() {
                   )}
                 </div>
 
-                {/* Location coordinates */}
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
                     Location Status
@@ -838,7 +675,6 @@ export default function ReportEmergency() {
                   )}
                 </div>
 
-                {/* Contact phone */}
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
                     Contact Details
@@ -853,7 +689,6 @@ export default function ReportEmergency() {
                   )}
                 </div>
 
-                {/* Extra comments */}
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
                     Additional Context
@@ -862,22 +697,19 @@ export default function ReportEmergency() {
                     {form.description ? form.description : "No description provided."}
                   </p>
                 </div>
-
               </div>
 
-              {/* Encouraging Footer Note */}
               <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-100 flex items-start gap-3 mt-4">
                 <Info size={16} className="text-slate-400 shrink-0 mt-0.5" />
                 <p className="text-[10px] text-slate-400 font-medium leading-normal">
                   Your report is directly transmitted to active local animal rescue units. Please verify coordinates for accuracy.
                 </p>
               </div>
-
+            </div>
             </div>
           </div>
-
         </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -94,38 +94,51 @@ export default function ImageUpload({ value, onImageSelect, disabled }) {
 
   return (
     <div className="space-y-3">
+      {/* Desktop Dropzone */}
       <div
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onClick={() => fileInputRef.current?.click()}
-        className={`relative flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-200 ${
+        className={`hidden sm:flex relative flex-col items-center justify-center gap-3 p-8 border-2 border-dashed rounded-2xl cursor-pointer transition-all duration-200 ${
           dragActive
             ? 'border-primary bg-primary/10 scale-[1.02]'
-            : 'border-neutral hover:border-primary/50 hover:bg-primary/5'
+            : 'border-slate-200 hover:border-primary/50 hover:bg-primary/5'
         } ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
       >
         <div className="p-3 rounded-2xl bg-primary/10">
           <Upload size={28} className="text-primary" />
         </div>
         <div className="text-center">
-          <p className="text-sm font-semibold text-text">
-            Drop a photo or <span className="text-primary">browse</span>
+          <p className="text-sm font-semibold text-slate-700">
+            Drop a photo or <span className="text-primary">browse gallery</span>
           </p>
-          <p className="text-xs text-text-light mt-1">JPG, PNG up to 10MB • Auto-compressed to 800KB</p>
+          <p className="text-xs text-slate-400 mt-1">JPG, PNG up to 10MB • Auto-compressed</p>
         </div>
       </div>
 
-      {/* Camera capture button for mobile */}
-      <button
-        type="button"
-        onClick={() => cameraInputRef.current?.click()}
-        disabled={disabled}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-secondary text-white rounded-xl font-medium text-sm hover:bg-secondary-light transition-colors disabled:opacity-50"
-      >
-        <Camera size={18} />
-        Take Photo
-      </button>
+      {/* Action Buttons */}
+      <div className="flex flex-row gap-3">
+        <button
+          type="button"
+          onClick={() => cameraInputRef.current?.click()}
+          disabled={disabled}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-4 sm:py-3 bg-primary text-white rounded-xl sm:rounded-2xl font-bold text-sm hover:bg-primary-hover transition-all active:scale-95 shadow-sm shadow-orange-100 disabled:opacity-50"
+        >
+          <Camera size={18} />
+          Take Photo
+        </button>
+        
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={disabled}
+          className="flex-1 sm:hidden flex items-center justify-center gap-2 px-4 py-4 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 transition-all active:scale-95 disabled:opacity-50"
+        >
+          <ImageIcon size={18} />
+          Gallery
+        </button>
+      </div>
 
       <input
         ref={fileInputRef}
