@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Camera, Upload, X, Image as ImageIcon } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { compressImage } from '../../utils/imageCompressor';
 
 export default function ImageUpload({ value, onImageSelect, disabled }) {
@@ -25,7 +26,13 @@ export default function ImageUpload({ value, onImageSelect, disabled }) {
   const cameraInputRef = useRef(null);
 
   const handleFile = useCallback(async (file) => {
-    if (!file || !file.type.startsWith('image/')) return;
+    if (!file) return;
+    
+    // Some mobile devices return empty type for valid images, so we only reject if it's explicitly NOT an image or empty
+    if (file.type && !file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      toast.error('Please select a valid image file.');
+      return;
+    }
 
     // Preview immediately
     const reader = new FileReader();
