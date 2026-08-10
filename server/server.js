@@ -29,35 +29,59 @@ const io = new Server(httpServer, {
   cors: {
     origin: [
       process.env.CLIENT_URL || 'http://localhost:5173',
-      'http://127.0.0.1:5173'
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'https://pawmira.in',
+      'https://www.pawmira.in'
     ],
     methods: ['GET', 'POST']
   }
 });
 
+const jwt = require('jsonwebtoken');
+const User = require('./models/User');
+
+// Socket.io JWT Authentication Middleware
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return next(new Error('Authentication error: Token missing'));
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id).select('-password');
+    if (!user) {
+      return next(new Error('Authentication error: User not found'));
+    }
+    socket.user = user;
+    next();
+  } catch (err) {
+    return next(new Error('Authentication error: Invalid token'));
+  }
+});
+
 // Setup Socket.io events
 io.on('connection', (socket) => {
-  console.log(`[SOCKET_CONNECTED] User: ${socket.id}`);
+  console.log(`[SOCKET_CONNECTED] User: ${socket.user ? socket.user.name : socket.id}`);
 
   socket.on('join_rescue_room', (reportId) => {
     socket.join(`rescue_${reportId}`);
-    console.log(`[SOCKET] User ${socket.id} joined rescue_${reportId}`);
+    console.log(`[SOCKET] User ${socket.user ? socket.user.name : socket.id} joined rescue_${reportId}`);
   });
 
   socket.on('leave_rescue_room', (reportId) => {
     socket.leave(`rescue_${reportId}`);
-    console.log(`[SOCKET] User ${socket.id} left rescue_${reportId}`);
+    console.log(`[SOCKET] User ${socket.user ? socket.user.name : socket.id} left rescue_${reportId}`);
   });
 
   socket.on('send_rescue_message', async (data) => {
     try {
-      // data: { reportId, senderId, content }
+      if (!socket.user) return;
       const RescueMessage = require('./models/RescueMessage');
-      const User = require('./models/User');
       
       const newMessage = await RescueMessage.create({
         report_id: data.reportId,
-        sender: data.senderId,
+        sender: socket.user._id,
         content: data.content
       });
 
@@ -70,7 +94,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log(`[SOCKET_DISCONNECTED] User: ${socket.id}`);
+    console.log(`[SOCKET_DISCONNECTED] User: ${socket.user ? socket.user.name : socket.id}`);
   });
 });
 
@@ -78,7 +102,10 @@ io.on('connection', (socket) => {
 app.use(cors({
   origin: [
     process.env.CLIENT_URL || 'http://localhost:5173',
-    'http://127.0.0.1:5173'
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'https://pawmira.in',
+    'https://www.pawmira.in'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
