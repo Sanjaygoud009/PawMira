@@ -12,6 +12,8 @@ export default function RescueChat({ reportId, user, onClose }) {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [socketError, setSocketError] = useState(null);
+  const [roomReady, setRoomReady] = useState(false);
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -31,11 +33,42 @@ export default function RescueChat({ reportId, user, onClose }) {
     fetchHistory();
 
     // 2. Setup Socket
-    socketRef.current = io(SOCKET_URL);
+    const token = localStorage.getItem('pawmira_token');
+    socketRef.current = io(SOCKET_URL, {
+      auth: { token },
+      forceNew: true // Ensures a clean connection instance per chat session
+    });
 
-    socketRef.current.on('connect', () => {
+    const joinRoom = () => {
       console.log('Connected to socket:', socketRef.current.id);
-      socketRef.current.emit('join_rescue_room', reportId);
+      setSocketError(null);
+      setRoomReady(false);
+      socketRef.current.emit('join_rescue_room', reportId, (result) => {
+        if (result?.ok) {
+          setRoomReady(true);
+        } else {
+          setSocketError(result?.error || 'Could not join this rescue chat.');
+        }
+      });
+    };
+
+    if (socketRef.current.connected) {
+      joinRoom();
+    } else {
+      socketRef.current.connect();
+    }
+
+    socketRef.current.on('connect', joinRoom);
+
+    // Handle server-rejected connections (e.g., auth failure, invalid token)
+    socketRef.current.on('connect_error', (err) => {
+      console.error('[SOCKET_CONNECT_ERROR]', err.message);
+      setSocketError(err.message || 'Could not connect to real-time chat.');
+      setLoading(false);
+    });
+
+    socketRef.current.on('disconnect', () => {
+      setRoomReady(false);
     });
 
     socketRef.current.on('receive_rescue_message', (message) => {
@@ -59,15 +92,18 @@ export default function RescueChat({ reportId, user, onClose }) {
 
   const handleSendMessage = (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !socketRef.current) return;
+    if (!newMessage.trim() || !socketRef.current || socketError || !roomReady || !socketRef.current.connected) return;
 
     socketRef.current.emit('send_rescue_message', {
       reportId,
-      senderId: user._id,
       content: newMessage.trim(),
+    }, (result) => {
+      if (result?.ok) {
+        setNewMessage('');
+      } else {
+        setSocketError(result?.error || 'Could not send message.');
+      }
     });
-
-    setNewMessage('');
   };
 
   const formatTime = (dateString) => {
@@ -105,7 +141,17 @@ export default function RescueChat({ reportId, user, onClose }) {
 
           {/* Messages Area */}
           <div className="flex-1 overflow-y-auto p-4 bg-gray-50 flex flex-col gap-4">
-            {loading ? (
+            {socketError ? (
+              <div className="flex flex-col items-center justify-center h-full text-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
+                  <X size={20} className="text-red-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-red-600">Real-time chat unavailable</p>
+                  <p className="text-xs text-text-light mt-1">Could not connect to the chat server. Please close and try again.</p>
+                </div>
+              </div>
+            ) : loading ? (
               <div className="flex justify-center items-center h-full text-text-light text-sm">
                 Loading messages...
               </div>
@@ -159,15 +205,16 @@ export default function RescueChat({ reportId, user, onClose }) {
             <form onSubmit={handleSendMessage} className="flex gap-2">
               <input
                 type="text"
-                placeholder="Type your message..."
+                placeholder={socketError ? 'Chat unavailable' : roomReady ? 'Type your message...' : 'Joining chat...'}
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 className="input flex-1 py-3 bg-neutral focus:bg-white"
-                autoFocus
+                disabled={!!socketError || !roomReady}
+                autoFocus={!socketError && roomReady}
               />
               <button 
                 type="submit" 
-                disabled={!newMessage.trim()}
+                disabled={!newMessage.trim() || !!socketError || !roomReady}
                 className="bg-primary text-white p-3 rounded-xl hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
               >
                 <Send size={20} />

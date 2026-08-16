@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -16,6 +16,7 @@ import {
   Medal,
   Settings,
   MapPin,
+  X,
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -25,6 +26,7 @@ import PriorityBadge from '../components/ui/PriorityBadge';
 import { SkeletonGrid, SkeletonDashboardCard, SkeletonProfile } from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
 import { getSafeImageUrl } from '../utils/imageUtils';
+import ImageUpload from '../components/report/ImageUpload';
 import api from '../utils/api';
 import { useAuth } from '../hooks/useAuth';
 import { format } from 'date-fns';
@@ -48,30 +50,33 @@ const createColoredIcon = (color) =>
   });
 
 const markerColors = {
-  pending: '#F59E0B',
+  open: '#F59E0B',
   in_progress: '#3B82F6',
-  rescued: '#22C55E',
+  under_treatment: '#8B5CF6',
+  safe: '#22C55E',
+  inactive: '#64748B',
 };
+const DASHBOARD_PAGE_SIZE = 20;
 
 function StatsBar({ reports }) {
   const stats = [
     {
-      label: 'Pending',
-      count: reports.filter((r) => r.status === 'pending').length,
+      label: 'Open',
+      count: reports.filter((r) => r.status === 'open').length,
       icon: Clock,
       color: 'text-amber-500',
       bg: 'bg-amber-50',
     },
     {
       label: 'In Progress',
-      count: reports.filter((r) => r.status === 'in_progress').length,
+      count: reports.filter((r) => r.status === 'in_progress' || r.status === 'under_treatment').length,
       icon: RefreshCw,
       color: 'text-blue-500',
       bg: 'bg-blue-50',
     },
     {
-      label: 'Rescued',
-      count: reports.filter((r) => r.status === 'rescued').length,
+      label: 'Safe',
+      count: reports.filter((r) => r.status === 'safe').length,
       icon: CheckCircle,
       color: 'text-emerald-500',
       bg: 'bg-emerald-50',
@@ -94,7 +99,7 @@ function StatsBar({ reports }) {
   );
 }
 
-function ReportCard({ report, onUpdateStatus }) {
+function ReportCard({ report, onUpdateStatus, onMarkSafe }) {
   const [updating, setUpdating] = useState(false);
 
   const handleUpdate = async (newStatus) => {
@@ -155,9 +160,9 @@ function ReportCard({ report, onUpdateStatus }) {
         </div>
 
         {/* Action buttons */}
-        {report.status !== 'rescued' && (
+        {report.status !== 'safe' && (
           <div className="flex gap-2 pt-1">
-            {report.status === 'pending' && (
+            {report.status === 'open' && (
               <button
                 onClick={() => handleUpdate('in_progress')}
                 disabled={updating}
@@ -168,11 +173,20 @@ function ReportCard({ report, onUpdateStatus }) {
             )}
             {report.status === 'in_progress' && (
               <button
-                onClick={() => handleUpdate('rescued')}
+                onClick={() => handleUpdate('under_treatment')}
+                disabled={updating}
+                className="flex-1 py-2 text-xs font-semibold bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors disabled:opacity-50"
+              >
+                Under Treatment
+              </button>
+            )}
+            {(report.status === 'in_progress' || report.status === 'under_treatment') && (
+              <button
+                onClick={() => onMarkSafe(report._id)}
                 disabled={updating}
                 className="flex-1 py-2 text-xs font-semibold bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors disabled:opacity-50"
               >
-                Mark Rescued ✓
+                Mark Safe ✓
               </button>
             )}
           </div>
@@ -233,6 +247,76 @@ function MapView({ reports, onUpdateStatus }) {
   );
 }
 
+// Dashboard-scoped resolve modal: requires photo proof, uses the protected /resolve endpoint.
+function DashboardResolveModal({ reportId, onClose, onSuccess }) {
+  const [image, setImage] = useState(null);
+  const [resolvedByName, setResolvedByName] = useState('');
+  const [resolvedByRole, setResolvedByRole] = useState('Volunteer');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!image) return toast.error('A photo of the safe animal is required!');
+    setSubmitting(true);
+    try {
+      const fd = new FormData();
+      fd.append('image', image);
+      if (resolvedByName) fd.append('resolved_by_name', resolvedByName);
+      fd.append('resolved_by_role', resolvedByRole);
+      await api.post(`/reports/${reportId}/resolve`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      toast.success('Animal marked as safe! 💚');
+      onSuccess();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to resolve report.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-dark/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral bg-gray-50/50">
+          <h2 className="text-lg font-bold text-dark">Mark Animal Safe</h2>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-neutral transition-colors text-text-light hover:text-dark">
+            <X size={20} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          <div className="text-center mb-4">
+            <p className="text-sm text-text-light">Provide proof of rescue to mark this emergency as resolved.</p>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-text-light uppercase tracking-wider mb-1.5">Photo Proof *</label>
+            <ImageUpload onImageSelect={setImage} disabled={submitting} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-text-light uppercase tracking-wider mb-1">Your Name</label>
+              <input value={resolvedByName} onChange={e => setResolvedByName(e.target.value)} placeholder="e.g. John Doe" className="w-full px-4 py-3 rounded-xl border border-neutral text-sm focus:outline-none focus:border-primary bg-gray-50/50" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-text-light uppercase tracking-wider mb-1">Your Role</label>
+              <select value={resolvedByRole} onChange={e => setResolvedByRole(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-neutral text-sm focus:outline-none focus:border-primary bg-gray-50/50">
+                <option value="Volunteer">Volunteer</option>
+                <option value="NGO Partner">NGO Partner</option>
+                <option value="Community Member">Community Member</option>
+                <option value="Veterinarian">Veterinarian</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-4 border-t border-neutral">
+            <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl border border-neutral text-sm font-semibold text-text-dark hover:bg-neutral transition-colors">Cancel</button>
+            <button type="submit" disabled={submitting} className="flex-1 py-3 rounded-xl bg-emerald-500 text-white text-sm font-bold hover:bg-emerald-600 transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+              {submitting ? 'Saving...' : 'Confirm Safe'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user, updateUser } = useAuth(); // Assume updateUser exists or we use local state
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'rescues' | 'inbox'
@@ -241,7 +325,10 @@ export default function Dashboard() {
   const [view, setView] = useState('list');
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
-  const [sortBy, setSortBy] = useState('-created_at');
+  const [page, setPage] = useState(1);
+  const [hasMoreReports, setHasMoreReports] = useState(false);
+  const [loadingMoreReports, setLoadingMoreReports] = useState(false);
+  const reportsRequestIdRef = useRef(0);
 
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
@@ -256,21 +343,39 @@ export default function Dashboard() {
   });
   const [savingProfile, setSavingProfile] = useState(false);
 
-  const fetchReports = useCallback(async () => {
+  const fetchReports = useCallback(async ({ pageToLoad = 1, append = false } = {}) => {
+    const requestId = ++reportsRequestIdRef.current;
     try {
+      if (append) setLoadingMoreReports(true);
+      else setLoading(true);
+
       const params = {};
       if (statusFilter) params.status = statusFilter;
       if (priorityFilter) params.priority = priorityFilter;
-      params.sort = sortBy;
+      params.include_safe = 'true';
+      params.page = pageToLoad;
+      params.limit = DASHBOARD_PAGE_SIZE;
 
       const { data } = await api.get('/reports', { params });
-      setReports(data.data || []);
+      if (requestId !== reportsRequestIdRef.current) return;
+
+      const nextReports = Array.isArray(data) ? data : [];
+      setHasMoreReports(nextReports.length === DASHBOARD_PAGE_SIZE);
+      setPage(pageToLoad);
+      setReports((currentReports) => {
+        if (!append) return nextReports;
+        const existingIds = new Set(currentReports.map((report) => report._id));
+        return [...currentReports, ...nextReports.filter((report) => !existingIds.has(report._id))];
+      });
     } catch (err) {
-      toast.error('Failed to load reports');
+      if (requestId === reportsRequestIdRef.current) toast.error('Failed to load reports');
     } finally {
-      setLoading(false);
+      if (requestId === reportsRequestIdRef.current) {
+        setLoading(false);
+        setLoadingMoreReports(false);
+      }
     }
-  }, [statusFilter, priorityFilter, sortBy]);
+  }, [statusFilter, priorityFilter]);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -295,6 +400,10 @@ export default function Dashboard() {
       toast.error('Failed to update report');
     }
   };
+
+  // "Mark Safe" must go through the protected resolution workflow (POST /resolve with photo proof)
+  // This is handled by the DashboardResolveModal below.
+  const [resolveReportId, setResolveReportId] = useState(null);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -338,6 +447,7 @@ export default function Dashboard() {
   };
 
   return (
+    <>
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
         {/* Header */}
@@ -476,7 +586,8 @@ export default function Dashboard() {
             <div className="flex justify-between items-center">
               <p className="text-sm font-semibold text-text-light">{reports.length} reports</p>
               <button
-                onClick={fetchReports}
+                onClick={() => fetchReports()}
+                disabled={loading}
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white border border-neutral rounded-xl hover:bg-neutral/30 transition-colors"
               >
                 <RefreshCw size={14} /> Refresh
@@ -495,9 +606,10 @@ export default function Dashboard() {
                   className="px-3 py-2 text-sm border border-neutral rounded-xl bg-white focus:outline-none focus:border-primary"
                 >
                   <option value="">All Status</option>
-                  <option value="pending">Pending</option>
+                  <option value="open">Open</option>
                   <option value="in_progress">In Progress</option>
-                  <option value="rescued">Rescued</option>
+                  <option value="under_treatment">Under Treatment</option>
+                  <option value="safe">Safe</option>
                 </select>
                 <select
                   value={priorityFilter}
@@ -543,8 +655,21 @@ export default function Dashboard() {
                     key={report._id}
                     report={report}
                     onUpdateStatus={handleUpdateStatus}
+                    onMarkSafe={(id) => setResolveReportId(id)}
                   />
                 ))}
+              </div>
+            )}
+            {!loading && hasMoreReports && (
+              <div className="flex justify-center pt-2">
+                <button
+                  onClick={() => fetchReports({ pageToLoad: page + 1, append: true })}
+                  disabled={loadingMoreReports}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white border border-neutral rounded-xl hover:bg-neutral/30 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw size={14} className={loadingMoreReports ? 'animate-spin' : ''} />
+                  {loadingMoreReports ? 'Loading...' : 'Load more reports'}
+                </button>
               </div>
             )}
           </div>
@@ -624,5 +749,13 @@ export default function Dashboard() {
         )}
       </div>
     </div>
+    {resolveReportId && (
+      <DashboardResolveModal
+        reportId={resolveReportId}
+        onClose={() => setResolveReportId(null)}
+        onSuccess={() => { setResolveReportId(null); fetchReports(); }}
+      />
+    )}
+    </>
   );
 }

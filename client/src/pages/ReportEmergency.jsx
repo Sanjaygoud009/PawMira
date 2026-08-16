@@ -45,7 +45,7 @@ export default function ReportEmergency() {
   const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [aiError, setAiError] = useState(false);
+  const [aiError, setAiError] = useState(null);
 
   const [form, setForm] = useState({
     reporter_name: '',
@@ -178,13 +178,10 @@ export default function ReportEmergency() {
       const message = String(errorData?.message || '');
       const reason = String(errorData?.reason || '');
 
-      // Broadly catch any AI detection failures or Gemini API system errors
-      if (
-        message.includes('AI could not detect') || 
-        message.includes('animal') ||
-        reason.includes('SYSTEM ERROR')
-      ) {
-        setAiError(true);
+      if (errorData?.code === 'AI_ANIMAL_NOT_DETECTED') {
+        setAiError('not_detected');
+      } else if (errorData?.code === 'AI_VALIDATION_UNAVAILABLE') {
+        setAiError('unavailable');
       } else {
         let errorMessage = message || 'Something went wrong. Try again.';
         if (errorData?.reason) {
@@ -256,9 +253,13 @@ export default function ReportEmergency() {
                 <Bot size={32} />
               </div>
               
-              <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">AI Detection Failed</h3>
+              <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">
+                {aiError === 'unavailable' ? 'AI Verification Unavailable' : 'AI Detection Failed'}
+              </h3>
               <p className="text-slate-500 font-medium leading-relaxed mb-8">
-                Our AI couldn't detect an animal in the image you uploaded. Please try a clearer photo so responders know what to look for!
+                {aiError === 'unavailable'
+                  ? 'We could not verify the image right now. Your report was not submitted. Please try again shortly.'
+                  : 'Our AI could not detect an animal in the image you uploaded. Please try a clearer photo so responders know what to look for!'}
               </p>
               
               <button

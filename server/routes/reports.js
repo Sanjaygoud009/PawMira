@@ -30,9 +30,8 @@ router.get('/stats', getPublicStats);
 // Admin only — view soft-deleted reports
 router.get('/deleted', protect, authorize('admin'), getDeletedReports);
 
-// Public/Protected — resolve emergency
-// Note: Keeping it public/optional auth based on project setup for public reports
-router.post('/:id/resolve', upload.single('image'), resolveReport);
+// Protected — resolve emergency
+router.post('/:id/resolve', protect, upload.single('image'), resolveReport);
 
 // Protected — responder actions
 router.post('/:id/respond', protect, respondToReport);

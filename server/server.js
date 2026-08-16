@@ -40,61 +40,92 @@ const io = new Server(httpServer, {
 
 const jwt = require('jsonwebtoken');
 const User = require('./models/User');
+const mongoose = require('mongoose');
+const Report = require('./models/Report');
+const RescueMessage = require('./models/RescueMessage');
+const { authenticateSocket } = require('./utils/socketAuth');
+const { canAccessRescueChat } = require('./utils/reportAuthorization');
+const { validateRescueMessage } = require('./utils/rescueChat');
+
+const acknowledge = (callback, payload) => {
+  if (typeof callback === 'function') callback(payload);
+};
 
 // Socket.io JWT Authentication Middleware
-io.use(async (socket, next) => {
-  try {
-    const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.replace('Bearer ', '');
-    if (!token) {
-      return next(new Error('Authentication error: Token missing'));
-    }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select('-password');
-    if (!user) {
-      return next(new Error('Authentication error: User not found'));
-    }
-    socket.user = user;
-    next();
-  } catch (err) {
-    return next(new Error('Authentication error: Invalid token'));
-  }
-});
+io.use((socket, next) => authenticateSocket(socket, next, { jwt, User, jwtSecret: process.env.JWT_SECRET }));
 
 // Setup Socket.io events
 io.on('connection', (socket) => {
-  console.log(`[SOCKET_CONNECTED] User: ${socket.user ? socket.user.name : socket.id}`);
+  console.log(`[SOCKET_CONNECTED] socket=${socket.id} userId=${socket.user?._id}`);
 
-  socket.on('join_rescue_room', (reportId) => {
-    socket.join(`rescue_${reportId}`);
-    console.log(`[SOCKET] User ${socket.user ? socket.user.name : socket.id} joined rescue_${reportId}`);
+  socket.on('join_rescue_room', async (reportId, callback) => {
+    try {
+      if (!socket.user) return acknowledge(callback, { ok: false, error: 'Authentication required' });
+      if (!mongoose.Types.ObjectId.isValid(reportId)) {
+        return acknowledge(callback, { ok: false, error: 'Invalid rescue report ID' });
+      }
+
+      const report = await Report.findById(reportId);
+      if (!report || report.is_deleted) {
+        return acknowledge(callback, { ok: false, error: 'Rescue report not found' });
+      }
+
+      if (canAccessRescueChat(report, socket.user)) {
+        await socket.join(`rescue_${reportId}`);
+        console.log(`[SOCKET] socket=${socket.id} joined rescue_${reportId}`);
+        acknowledge(callback, { ok: true });
+      } else {
+        console.warn(`[SOCKET_AUTH] socket=${socket.id} unauthorized join attempt for rescue_${reportId}`);
+        acknowledge(callback, { ok: false, error: 'Not authorized to join this rescue chat' });
+      }
+    } catch (err) {
+      console.error('[SOCKET_ERROR] join_rescue_room:', err);
+      acknowledge(callback, { ok: false, error: 'Unable to join rescue chat' });
+    }
   });
 
   socket.on('leave_rescue_room', (reportId) => {
     socket.leave(`rescue_${reportId}`);
-    console.log(`[SOCKET] User ${socket.user ? socket.user.name : socket.id} left rescue_${reportId}`);
+    console.log(`[SOCKET] socket=${socket.id} left rescue_${reportId}`);
   });
 
-  socket.on('send_rescue_message', async (data) => {
+  socket.on('send_rescue_message', async (data = {}, callback) => {
     try {
-      if (!socket.user) return;
-      const RescueMessage = require('./models/RescueMessage');
-      
+      if (!socket.user) return acknowledge(callback, { ok: false, error: 'Authentication required' });
+      if (!mongoose.Types.ObjectId.isValid(data.reportId)) {
+        return acknowledge(callback, { ok: false, error: 'Invalid rescue report ID' });
+      }
+      const message = validateRescueMessage(data.content);
+      if (!message.ok) return acknowledge(callback, message);
+
+      const report = await Report.findById(data.reportId);
+      if (!report || report.is_deleted) {
+        return acknowledge(callback, { ok: false, error: 'Rescue report not found' });
+      }
+
+      if (!canAccessRescueChat(report, socket.user)) {
+        console.warn(`[SOCKET_AUTH] socket=${socket.id} unauthorized send attempt to rescue_${data.reportId}`);
+        return acknowledge(callback, { ok: false, error: 'Not authorized to send rescue chat messages' });
+      }
+
       const newMessage = await RescueMessage.create({
         report_id: data.reportId,
-        sender: socket.user._id,
-        content: data.content
+        sender: socket.user._id, // Always enforced from the authenticated socket.
+        content: message.content
       });
 
       const populatedMessage = await RescueMessage.findById(newMessage._id).populate('sender', 'name profile_image_url role hero_level');
 
       io.to(`rescue_${data.reportId}`).emit('receive_rescue_message', populatedMessage);
+      acknowledge(callback, { ok: true, messageId: newMessage._id.toString() });
     } catch (error) {
       console.error('[SOCKET_ERROR] Failed to save/send message:', error);
+      acknowledge(callback, { ok: false, error: 'Unable to send message' });
     }
   });
 
   socket.on('disconnect', () => {
-    console.log(`[SOCKET_DISCONNECTED] User: ${socket.user ? socket.user.name : socket.id}`);
+    console.log(`[SOCKET_DISCONNECTED] socket=${socket.id}`);
   });
 });
 

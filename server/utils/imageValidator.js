@@ -3,15 +3,18 @@ const { GoogleGenAI } = require('@google/genai');
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 /**
- * Validates if an image contains an animal using Gemini 3.1
+ * Validates if an image contains an animal using Gemini.
  * @param {string} imageUrl - The URL of the image uploaded to Cloudinary
- * @returns {Promise<{ isAnimal: boolean, reason?: string }>}
+ * @returns {Promise<{ isAnimal: boolean, reason?: string, serviceError?: boolean }>}
  */
 async function validateAnimalImage(imageUrl) {
-  // If no API key is provided, bypass validation (useful for local dev before setup)
   if (!process.env.GEMINI_API_KEY) {
-    console.warn('[GEMINI] No GEMINI_API_KEY found, skipping image validation.');
-    return { isAnimal: true };
+    console.error('[GEMINI_ERROR] GEMINI_API_KEY is not configured.');
+    return {
+      isAnimal: false,
+      serviceError: true,
+      reason: 'AI image verification is not configured.'
+    };
   }
 
   try {
@@ -34,7 +37,7 @@ Answer with ONLY a JSON object containing two fields:
 }`;
 
     const result = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3.5-flash-lite',
       contents: [
         {
           role: 'user',
@@ -72,10 +75,16 @@ Answer with ONLY a JSON object containing two fields:
     }
 
   } catch (error) {
-    console.error(`[GEMINI_ERROR] validateAnimalImage:`, error);
-    // TEMPORARY: Fail closed to debug why it's accepting everything.
-    // This will send the exact error message to the frontend.
-    return { isAnimal: false, reason: `SYSTEM ERROR: ${error.message}` };
+    console.error('[GEMINI_ERROR] validateAnimalImage:', {
+      message: error.message,
+      status: error.status,
+      code: error.code
+    });
+    return {
+      isAnimal: false,
+      serviceError: true,
+      reason: 'AI image verification is temporarily unavailable.'
+    };
   }
 }
 

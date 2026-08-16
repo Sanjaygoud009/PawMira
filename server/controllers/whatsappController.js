@@ -2,6 +2,7 @@ const WhatsAppSession = require('../models/WhatsAppSession');
 const Report = require('../models/Report');
 const cloudinary = require('../config/cloudinary');
 const twilio = require('twilio');
+const { buildWhatsAppReportData } = require('../utils/whatsappReport');
 
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
@@ -120,19 +121,7 @@ exports.handleWhatsApp = async (req, res) => {
       case 'confirming': {
         if (Body && Body.toLowerCase().trim() === 'yes') {
           // Create the report
-          const report = await Report.create({
-            reporter_name: 'WhatsApp User',
-            reporter_phone: phone.replace('whatsapp:', ''),
-            image_url: session.image_url,
-            description: session.description,
-            location: {
-              type: 'Point',
-              coordinates: [session.longitude, session.latitude],
-            },
-            issue_type: 'other', // Default for WhatsApp reports
-            source: 'whatsapp',
-            history: [{ status: 'pending', updated_at: new Date() }],
-          });
+          const report = await Report.create(buildWhatsAppReportData(session, phone));
 
           // Clean up session
           await WhatsAppSession.deleteOne({ phone });
@@ -156,6 +145,7 @@ exports.handleWhatsApp = async (req, res) => {
     res.status(200).send('<Response></Response>');
   } catch (error) {
     console.error(`[WHATSAPP_ERROR] handleWhatsApp: ${error.message}`);
-    res.status(200).send('<Response></Response>');
+    // A non-2xx response lets Twilio retry instead of masking a failed report as success.
+    res.status(500).type('text/xml').send('<Response></Response>');
   }
 };

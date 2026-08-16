@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const { awardHearts } = require('../utils/gamification');
 const { validateAnimalImage } = require('../utils/imageValidator');
 const cloudinary = require('../config/cloudinary');
+const { parseReportsQuery } = require('../utils/reportQuery');
+const { canManageReport } = require('../utils/reportAuthorization');
 
 // @desc    Create a new report
 // @route   POST /api/reports
@@ -21,6 +23,16 @@ exports.createReport = async (req, res) => {
 
     // AI Image Validation
     const validation = await validateAnimalImage(req.file.path);
+    if (validation.serviceError) {
+      if (req.file.filename) {
+        await cloudinary.uploader.destroy(req.file.filename).catch(() => {});
+      }
+      return res.status(503).json({
+        message: 'AI image verification is temporarily unavailable. Please try again shortly.',
+        code: 'AI_VALIDATION_UNAVAILABLE'
+      });
+    }
+
     if (!validation.isAnimal) {
       // Delete the non-animal image from Cloudinary
       if (req.file.filename) {
@@ -28,6 +40,7 @@ exports.createReport = async (req, res) => {
       }
       return res.status(400).json({ 
         message: 'Our AI could not detect an animal in this image.',
+        code: 'AI_ANIMAL_NOT_DETECTED',
         reason: validation.reason 
       });
     }
@@ -84,21 +97,32 @@ exports.createReport = async (req, res) => {
 // @route   GET /api/reports
 exports.getReports = async (req, res) => {
   try {
-    const { status, priority, lat, lng, radius = 50000 } = req.query; // Default 50km
-    
-    let pipeline = [];
+    let query;
+    try {
+      query = parseReportsQuery(req.query);
+    } catch (error) {
+      return res.status(400).json({ message: error.message });
+    }
+
+    const { status, priority, lat, lng, radius, page, limit, includeSafe } = query;
+    const skip = (page - 1) * limit;
+    const hasGeo = lat !== undefined && lng !== undefined;
 
     // 1. Build Base Query
     let baseQuery = { is_deleted: false };
     if (status) {
       baseQuery.status = status;
-    } else {
-      baseQuery.status = { $ne: 'safe' }; // Hide safe reports from live feed
+    } else if (!includeSafe) {
+      baseQuery.status = { $ne: 'safe' }; // Hide safe reports from live feed by default
     }
-    if (priority) baseQuery.priority = priority;
+    if (priority) {
+      baseQuery.priority = priority;
+    }
+
+    let pipeline = [];
 
     // 2. Initial Stage (GeoNear or Match)
-    if (lat && lng) {
+    if (hasGeo) {
       pipeline.push({
         $geoNear: {
           near: { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] },
@@ -130,20 +154,49 @@ exports.getReports = async (req, res) => {
     });
 
     // 4. Sort: Severity first, then distance (if geo), else created_at
-    const sortStage = lat && lng 
+    const sortStage = hasGeo
       ? { priority_weight: -1, distance: 1 }
       : { priority_weight: -1, created_at: -1 };
-    
+
     pipeline.push({ $sort: sortStage });
 
-    // 5. Populate users
+    // 5. Project only fields the feed card needs — trims heavy array fields not used in the list
+    pipeline.push({
+      $project: {
+        _id: 1,
+        reporter_name: 1,
+        reporter_id: 1,
+        image_url: 1,
+        description: 1,
+        location: 1,
+        address: 1,
+        issue_type: 1,
+        priority: 1,
+        status: 1,
+        primary_responder: 1,
+        backup_responders: 1,
+        monitors: 1,
+        last_activity_at: 1,
+        created_at: 1,
+        history: 1,
+        timeline: 1,
+        distance: 1,       // populated by $geoNear when geo is used
+        priority_weight: 1 // used for sorting, kept for transparency
+      }
+    });
+
+    // 6. Pagination — skip then limit
+    pipeline.push({ $skip: skip }, { $limit: limit });
+
+    // 7. Populate responders (after pagination so lookup is over fewer docs)
     pipeline.push(
       {
         $lookup: {
           from: 'users',
           localField: 'primary_responder',
           foreignField: '_id',
-          as: 'primary_responder_info'
+          as: 'primary_responder_info',
+          pipeline: [{ $project: { _id: 1, name: 1 } }] // only fetch needed fields
         }
       },
       {
@@ -154,26 +207,25 @@ exports.getReports = async (req, res) => {
           from: 'users',
           localField: 'backup_responders',
           foreignField: '_id',
-          as: 'backup_responders_info'
+          as: 'backup_responders_info',
+          pipeline: [{ $project: { _id: 1, name: 1 } }] // only fetch needed fields
         }
       }
     );
 
     const reports = await Report.aggregate(pipeline);
 
-    // Format for frontend
+    // Format for frontend — attach flat lat/lng and resolved responder objects
     const transformed = reports.map((r) => ({
       ...r,
       latitude: r.location?.coordinates?.[1],
       longitude: r.location?.coordinates?.[0],
-      primary_responder: r.primary_responder_info ? {
-        _id: r.primary_responder_info._id,
-        name: r.primary_responder_info.name
-      } : (r.primary_responder ? { _id: r.primary_responder } : null),
-      backup_responders: r.backup_responders_info ? r.backup_responders_info.map(u => ({
-        _id: u._id,
-        name: u.name
-      })) : (r.backup_responders || [])
+      primary_responder: r.primary_responder_info
+        ? { _id: r.primary_responder_info._id, name: r.primary_responder_info.name }
+        : (r.primary_responder ? { _id: r.primary_responder } : null),
+      backup_responders: r.backup_responders_info
+        ? r.backup_responders_info.map(u => ({ _id: u._id, name: u.name }))
+        : (r.backup_responders || [])
     }));
 
     res.json(transformed);
@@ -401,13 +453,29 @@ exports.addCommunityFlag = async (req, res) => {
   }
 };
 
-// @desc    Update legacy report status directly (for admins or dashboard)
+// @desc    Update legacy report status directly (authorized users/admin)
 // @route   PATCH /api/reports/:id
 exports.updateReport = async (req, res) => {
   try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid report ID format' });
+    }
+
     const { status } = req.body;
-    const report = await Report.findById(req.params.id);
-    if (!report) return res.status(404).json({ message: 'Report not found' });
+    // 'safe' is intentionally excluded: it must only be reached through the
+    // protected /resolve endpoint (POST /:id/resolve) which requires photo proof.
+    const ALLOWED_STATUSES = new Set(['open', 'in_progress', 'under_treatment', 'inactive']);
+    if (status && (typeof status !== 'string' || !ALLOWED_STATUSES.has(status))) {
+      return res.status(400).json({ message: 'Invalid status value provided' });
+    }
+
+    const report = await Report.findById(id);
+    if (!report || report.is_deleted) return res.status(404).json({ message: 'Report not found' });
+
+    if (!canManageReport(report, req.user)) {
+      return res.status(403).json({ message: 'Not authorized to update this report status' });
+    }
 
     if (status) {
       report.status = status;
@@ -429,9 +497,22 @@ exports.getDeletedReports = async (req, res) => {
 // @route   POST /api/reports/:id/resolve
 exports.resolveReport = async (req, res) => {
   try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid report ID format' });
+    }
+
     const { resolved_by_name, resolved_by_role } = req.body;
-    const report = await Report.findById(req.params.id);
+    const report = await Report.findById(id);
     if (!report || report.is_deleted) return res.status(404).json({ message: 'Report not found' });
+
+    if (!req.user) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    if (!canManageReport(report, req.user)) {
+      return res.status(403).json({ message: 'Not authorized to resolve this report' });
+    }
 
     if (!req.file) {
       return res.status(400).json({ message: 'Resolution photo is required.' });
@@ -440,20 +521,20 @@ exports.resolveReport = async (req, res) => {
     report.status = 'safe';
     report.is_archived = true;
     report.resolution_image_url = req.file.path;
-    report.resolved_by_name = resolved_by_name || 'Community Hero';
+    report.resolved_by_name = resolved_by_name || req.user.name || 'Community Hero';
     report.resolved_by_role = resolved_by_role || 'Community Member';
     
     // Add to timeline
     report.history.push({ 
       status: 'safe', 
-      updated_by: req.user ? req.user._id : null, 
+      updated_by: req.user._id,
       updated_at: new Date() 
     });
     
     report.timeline.push({
       event_type: 'safe',
       description: 'Animal marked as safe and rescued!',
-      user_id: req.user ? req.user._id : null,
+      user_id: req.user._id,
       created_at: new Date()
     });
     

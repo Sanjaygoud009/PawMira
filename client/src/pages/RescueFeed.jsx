@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useSearchParams } from 'react-router-dom';
 import api from '../utils/api';
@@ -115,53 +115,107 @@ function MapUpdater({ center }) {
   return null;
 }
 
+const PAGE_SIZE = 20;
+
 export default function RescueFeed() {
   const [view, setView] = useState('list'); // 'list' | 'map'
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [userLocation, setUserLocation] = useState(null);
   const [locationStatus, setLocationStatus] = useState('checking');
   const [resolveReportId, setResolveReportId] = useState(null);
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight');
+  // A new reset invalidates every older request, including in-flight Load More requests.
+  const fetchIdRef = useRef(0);
+  const loadingMoreRef = useRef(false);
 
-  const fetchReports = useCallback(async (lat, lng) => {
-    try {
-      setLoading(true);
-      let query = '';
-      if (lat && lng) {
-        query = `?lat=${lat}&lng=${lng}&radius=50000`;
-      }
-      const { data } = await api.get(`/reports${query}`);
-      setReports(data);
-    } catch (error) {
-      console.error('Failed to fetch reports', error);
-    } finally {
-      setLoading(false);
-    }
+  // Build base query string (without page/limit)
+  const buildGeoQuery = useCallback((lat, lng) => {
+    if (lat && lng) return `&lat=${lat}&lng=${lng}&radius=50000`;
+    return '';
   }, []);
 
+  // Fetch a specific page (reset=true replaces list, false appends).
+  const fetchPage = useCallback(async (pageNum, lat, lng, reset = true) => {
+    if (!reset && loadingMoreRef.current) return false;
+
+    let myFetchId = fetchIdRef.current;
+    if (reset) {
+      fetchIdRef.current += 1;
+      myFetchId = fetchIdRef.current;
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    } else {
+      loadingMoreRef.current = true;
+    }
+
+    try {
+      if (reset) setLoading(true);
+      else setLoadingMore(true);
+
+      const geo = buildGeoQuery(lat, lng);
+      const { data } = await api.get(`/reports?page=${pageNum}&limit=${PAGE_SIZE}${geo}`);
+
+      // Discard any response belonging to an earlier feed state.
+      if (myFetchId !== fetchIdRef.current) return false;
+
+      const nextReports = Array.isArray(data) ? data : [];
+      setHasMore(nextReports.length === PAGE_SIZE);
+
+      if (reset) {
+        setReports(nextReports);
+        setPage(1);
+      } else {
+        setReports(prev => {
+          // Deduplicate by _id when appending
+          const existing = new Set(prev.map(r => r._id));
+          return [...prev, ...nextReports.filter(r => !existing.has(r._id))];
+        });
+        setPage(pageNum);
+      }
+      return true;
+    } catch (error) {
+      if (myFetchId === fetchIdRef.current) console.error('Failed to fetch reports', error);
+      return false;
+    } finally {
+      if (myFetchId === fetchIdRef.current) {
+        setLoading(false);
+        setLoadingMore(false);
+        loadingMoreRef.current = false;
+      }
+    }
+  }, [buildGeoQuery]);
+
   useEffect(() => {
+    // 1. Immediate fetch so feed loads without waiting on geolocation prompt
+    fetchPage(1, null, null, true);
+
+    // 2. Asynchronous geolocation check to update user location & nearby sorting
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           setLocationStatus('allowed');
-          setUserLocation([pos.coords.latitude, pos.coords.longitude]);
-          fetchReports(pos.coords.latitude, pos.coords.longitude);
+          const coords = [pos.coords.latitude, pos.coords.longitude];
+          setUserLocation(coords);
+          // Re-fetch page 1 with geo (replaces current list with geo-sorted results)
+          fetchPage(1, coords[0], coords[1], true);
         },
         () => {
           setLocationStatus('blocked');
-          fetchReports(); // Fallback if user denies geolocation
-        }
+        },
+        { timeout: 4000 }
       );
     } else {
       setLocationStatus('unavailable');
-      fetchReports();
     }
-  }, [fetchReports]);
+  }, [fetchPage]);
 
-    useEffect(() => {
+  useEffect(() => {
     const handleOpenResolve = (e) => setResolveReportId(e.detail);
     window.addEventListener('openResolveModal', handleOpenResolve);
     return () => window.removeEventListener('openResolveModal', handleOpenResolve);
@@ -180,9 +234,16 @@ export default function RescueFeed() {
         } else {
           toast.error('The highlighted report is not currently visible in your feed. It may have been resolved, deleted, or is outside your current location radius.', { duration: 5000 });
         }
-      }, 500); // small delay to let DOM paint
+      }, 500);
     }
   }, [highlightId, searchParams.get('t'), reports, view]);
+
+  const handleLoadMore = () => {
+    if (loadingMoreRef.current || loading) return;
+    const nextPage = page + 1;
+    if (userLocation) fetchPage(nextPage, userLocation[0], userLocation[1], false);
+    else fetchPage(nextPage, null, null, false);
+  };
 
   if (loading && reports.length === 0) {
     return (
@@ -200,8 +261,9 @@ export default function RescueFeed() {
     if (updatedReport && updatedReport._id) {
       setReports(prev => prev.map(r => r._id === updatedReport._id ? { ...r, ...updatedReport } : r));
     } else {
-      if (userLocation) fetchReports(userLocation[0], userLocation[1]);
-      else fetchReports();
+      // Full refresh
+      if (userLocation) fetchPage(1, userLocation[0], userLocation[1], true);
+      else fetchPage(1, null, null, true);
     }
   };
 
@@ -227,7 +289,7 @@ export default function RescueFeed() {
 
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={handleUpdate}
+            onClick={() => { if (userLocation) fetchPage(1, userLocation[0], userLocation[1], true); else fetchPage(1, null, null, true); }}
             disabled={loading}
             className="inline-flex items-center gap-2 rounded-xl border border-neutral bg-white px-4 py-2 text-sm font-semibold text-text-dark shadow-sm hover:border-primary/30 hover:text-primary transition-colors disabled:opacity-60"
           >
@@ -333,8 +395,31 @@ export default function RescueFeed() {
               <RescueCard report={report} onUpdate={handleUpdate} user={user} />
             </div>
           ))}
-          {reports.length === 0 && (
+          {reports.length === 0 && !loading && (
             <EmptyState preset="rescue" />
+          )}
+          {/* Pagination — Load More */}
+          {hasMore && reports.length > 0 && (
+            <div className="col-span-full flex justify-center py-6">
+              <button
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="inline-flex items-center gap-2 rounded-xl border border-neutral bg-white px-6 py-3 text-sm font-semibold text-text-dark shadow-sm hover:border-primary/30 hover:text-primary transition-colors disabled:opacity-60"
+              >
+                {loadingMore ? (
+                  <>
+                    <RefreshCw size={16} className="animate-spin" /> Loading more...
+                  </>
+                ) : (
+                  'Load More Rescues'
+                )}
+              </button>
+            </div>
+          )}
+          {!hasMore && reports.length > 0 && (
+            <div className="col-span-full text-center py-6 text-sm text-text-light">
+              All active rescues loaded · {reports.length} case{reports.length !== 1 ? 's' : ''} shown
+            </div>
           )}
         </div>
       )}
