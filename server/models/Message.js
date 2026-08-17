@@ -8,13 +8,15 @@ const crypto = require('crypto');
 // ship a known weak key in source control.
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
 
-if (!ENCRYPTION_KEY || Buffer.byteLength(ENCRYPTION_KEY, 'utf8') !== 32) {
+if (!ENCRYPTION_KEY || !/^[0-9a-fA-F]{64}$/.test(ENCRYPTION_KEY)) {
   throw new Error(
     '[CONFIG_ERROR] ENCRYPTION_KEY environment variable is required and must be ' +
-    'exactly 32 bytes (256 bits) for aes-256-cbc message encryption. ' +
-    'Current length: ' + (ENCRYPTION_KEY ? Buffer.byteLength(ENCRYPTION_KEY, 'utf8') : 0) + ' bytes.'
+    'exactly a 64-character hex string (representing a 256-bit key) for aes-256-cbc message encryption. ' +
+    'Current length: ' + (ENCRYPTION_KEY ? ENCRYPTION_KEY.length : 0) + ' characters.'
   );
 }
+
+const KEY_BUFFER = Buffer.from(ENCRYPTION_KEY, 'hex');
 
 const IV_LENGTH = 16; // For AES, this is always 16
 
@@ -52,7 +54,7 @@ MessageSchema.pre('save', function (next) {
   if (this.isModified('content')) {
     try {
       let iv = crypto.randomBytes(IV_LENGTH);
-      let cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+      let cipher = crypto.createCipheriv('aes-256-cbc', KEY_BUFFER, iv);
       let encrypted = cipher.update(this.content);
       encrypted = Buffer.concat([encrypted, cipher.final()]);
       this.content = iv.toString('hex') + ':' + encrypted.toString('hex');
@@ -67,11 +69,11 @@ MessageSchema.pre('save', function (next) {
 MessageSchema.methods.getDecryptedContent = function () {
   try {
     let textParts = this.content.split(':');
-    if (textParts.length !== 2) return this.content; // Fallback for unencrypted old messages if any
+    if (textParts.length !== 2) throw new Error('Invalid encrypted format');
     
     let iv = Buffer.from(textParts.shift(), 'hex');
     let encryptedText = Buffer.from(textParts.join(':'), 'hex');
-    let decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+    let decipher = crypto.createDecipheriv('aes-256-cbc', KEY_BUFFER, iv);
     let decrypted = decipher.update(encryptedText);
     decrypted = Buffer.concat([decrypted, decipher.final()]);
     

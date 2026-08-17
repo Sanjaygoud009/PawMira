@@ -14,10 +14,18 @@ const CleanupLog = require('../models/CleanupLog');
 const extractPublicId = (url) => {
   if (!url || typeof url !== 'string') return null;
   try {
-    const pathname = new URL(url).pathname; // e.g. /<cloud>/image/upload/v1234/pawmira-reports/abc123.jpg
-    const uploadIndex = pathname.indexOf('/upload/');
-    if (uploadIndex === -1) return null;
-    let assetPath = pathname.slice(uploadIndex + '/upload/'.length);
+    const parsed = new URL(url);
+    if (parsed.hostname !== 'res.cloudinary.com') return null;
+
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    if (!cloudName) return null;
+
+    const pathname = parsed.pathname; // e.g. /<cloud>/image/upload/v1234/pawmira-reports/abc123.jpg
+    const expectedPrefix = `/${cloudName}/image/upload/`;
+
+    if (!pathname.startsWith(expectedPrefix)) return null;
+
+    let assetPath = pathname.slice(expectedPrefix.length);
     assetPath = assetPath.replace(/^v\d+\//, ''); // strip the version segment (e.g. v1234/)
     return assetPath.replace(/\.[^/.]+$/, '');    // strip the file extension
   } catch (err) {
