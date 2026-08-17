@@ -318,7 +318,7 @@ function DashboardResolveModal({ reportId, onClose, onSuccess }) {
 }
 
 export default function Dashboard() {
-  const { user, updateUser } = useAuth(); // Assume updateUser exists or we use local state
+  const { user, updateUser } = useAuth();
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'rescues' | 'inbox'
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -437,8 +437,7 @@ export default function Dashboard() {
     try {
       const { data } = await api.put('/auth/profile', profileForm);
       toast.success('Profile updated successfully!');
-      if (updateUser) updateUser(data); // update context if available
-      setTimeout(() => window.location.reload(), 1000); // quick refresh to see changes
+      updateUser(data); // update React context and localStorage in-place
     } catch (err) {
       toast.error('Failed to update profile');
     } finally {

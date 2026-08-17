@@ -45,6 +45,11 @@ export function AuthProvider({ children }) {
     return data;
   }, []);
 
+  const updateUser = useCallback((userData) => {
+    setUser(userData);
+    localStorage.setItem('pawmira_user', JSON.stringify(userData));
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem('pawmira_token');
     localStorage.removeItem('pawmira_user');
@@ -52,7 +57,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, verifyOtp, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, verifyOtp, updateUser, logout }}>
       {children}
     </AuthContext.Provider>
   );

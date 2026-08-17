@@ -1,10 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { register, verifyOtp, login, getMe, forgotPassword, resetPassword, updateProfile, testEmail } = require('../controllers/authController');
+const { register, verifyOtp, login, getMe, forgotPassword, resetPassword, updateProfile } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const { authLimiter } = require('../middleware/rateLimiter');
 
-router.get('/test-email', testEmail);
 router.post('/register', authLimiter, register);
 router.post('/verify-otp', authLimiter, verifyOtp);
 router.post('/login', authLimiter, login);

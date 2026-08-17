@@ -1,8 +1,21 @@
 const mongoose = require('mongoose');
 const crypto = require('crypto');
 
-// The encryption key should be 32 bytes (256 bits) for aes-256-cbc.
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || '12345678901234567890123456789012'; // Must be 32 bytes
+// The encryption key must be exactly 32 bytes (256 bits) for aes-256-cbc.
+// It MUST come from the environment — there is intentionally no hardcoded fallback.
+// Silently using a default key would encrypt new messages with a key that cannot
+// decrypt previously stored messages once a real key is configured, and it would
+// ship a known weak key in source control.
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+
+if (!ENCRYPTION_KEY || Buffer.byteLength(ENCRYPTION_KEY, 'utf8') !== 32) {
+  throw new Error(
+    '[CONFIG_ERROR] ENCRYPTION_KEY environment variable is required and must be ' +
+    'exactly 32 bytes (256 bits) for aes-256-cbc message encryption. ' +
+    'Current length: ' + (ENCRYPTION_KEY ? Buffer.byteLength(ENCRYPTION_KEY, 'utf8') : 0) + ' bytes.'
+  );
+}
+
 const IV_LENGTH = 16; // For AES, this is always 16
 
 const MessageSchema = new mongoose.Schema({

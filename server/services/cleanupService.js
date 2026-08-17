@@ -6,13 +6,20 @@ const FoundPet = require('../models/FoundPet');
 const User = require('../models/User');
 const CleanupLog = require('../models/CleanupLog');
 
-// Helper to extract Cloudinary public_id from URL
+// Helper to extract Cloudinary public_id from a stored asset URL.
+// Works for every upload folder (pawmira-reports, pawmira-whatsapp, etc.)
+// because it parses the actual URL structure rather than hardcoding a folder prefix.
+// Cloudinary URL format:
+//   https://res.cloudinary.com/<cloud>/image/upload/v<version>/<folder>/<filename>.<ext>
 const extractPublicId = (url) => {
-  if (!url) return null;
+  if (!url || typeof url !== 'string') return null;
   try {
-    const parts = url.split('/');
-    const filename = parts[parts.length - 1];
-    return 'pawmira/' + filename.split('.')[0]; // Assuming folder is pawmira based on multer-storage-cloudinary config
+    const pathname = new URL(url).pathname; // e.g. /<cloud>/image/upload/v1234/pawmira-reports/abc123.jpg
+    const uploadIndex = pathname.indexOf('/upload/');
+    if (uploadIndex === -1) return null;
+    let assetPath = pathname.slice(uploadIndex + '/upload/'.length);
+    assetPath = assetPath.replace(/^v\d+\//, ''); // strip the version segment (e.g. v1234/)
+    return assetPath.replace(/\.[^/.]+$/, '');    // strip the file extension
   } catch (err) {
     return null;
   }

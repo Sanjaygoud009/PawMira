@@ -43,19 +43,6 @@ const sendOTPEmail = async (userId, toEmail, userName, userRole, otp) => {
   }
 };
 
-exports.testEmail = async (req, res) => {
-  try {
-    const result = await sendEmail({
-      to: process.env.EMAIL_USER || 'test@example.com',
-      subject: 'Test from Render',
-      text: `If you see this, email sending works on Render! (transport: ${getTransportName()})`,
-    });
-    res.json({ success: true, transport: getTransportName(), messageId: result.messageId });
-  } catch (err) {
-    res.status(500).json({ success: false, transport: getTransportName(), error: err.message });
-  }
-};
-
 // Generate JWT
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '7d' });

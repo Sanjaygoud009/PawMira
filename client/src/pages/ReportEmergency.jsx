@@ -26,6 +26,7 @@ import LocationPicker from '../components/report/LocationPicker';
 import api from '../utils/api';
 
 const issueTypes = [
+  { value: 'severe_injury', label: '🚨 Severe Injury', desc: 'Critical wounds, bleeding, or broken bones' },
   { value: 'injured', label: '🩹 Injured', desc: 'Visible wounds or limping' },
   { value: 'starving', label: '🍽️ Starving', desc: 'Malnourished or dehydrated' },
   { value: 'abandoned', label: '😢 Abandoned', desc: 'Left alone in distress' },
