@@ -2,6 +2,16 @@ const { GoogleGenAI } = require('@google/genai');
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+const getGeminiImageUrl = (imageUrl) => {
+  if (!imageUrl.includes('res.cloudinary.com') || !imageUrl.includes('/upload/')) {
+    return imageUrl;
+  }
+
+  // Delivery-only transformation: preserves the original Cloudinary asset
+  // while reducing the image transferred to Render and Gemini.
+  return imageUrl.replace('/upload/', '/upload/w_600,c_limit,q_auto,f_auto/');
+};
+
 /**
  * Validates if an image contains an animal using Gemini.
  * @param {string} imageUrl - The URL of the image uploaded to Cloudinary
@@ -18,7 +28,7 @@ async function validateAnimalImage(imageUrl) {
   }
 
   try {
-    const response = await fetch(imageUrl);
+    const response = await fetch(getGeminiImageUrl(imageUrl));
     if (!response.ok) {
       throw new Error(`Failed to fetch image from ${imageUrl}`);
     }

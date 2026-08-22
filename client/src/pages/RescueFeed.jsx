@@ -369,7 +369,7 @@ export default function RescueFeed() {
                   <Popup className="custom-popup">
                     <div className="p-2 w-48">
                       <img 
-                        src={getSafeImageUrl(report.image_url)} 
+                        src={getSafeImageUrl(report.image_url, undefined, 800)}
                         className="w-full h-24 object-cover rounded-lg mb-2" 
                         alt="Rescue" 
                       />

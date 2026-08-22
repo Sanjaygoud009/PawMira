@@ -196,6 +196,9 @@ const reportSchema = new mongoose.Schema({
 
 // Indexes
 reportSchema.index({ location: '2dsphere' });
+// Supports $geoNear's existing active-report filter without changing the
+// persisted data model. The standalone geo index remains for other geo uses.
+reportSchema.index({ location: '2dsphere', is_deleted: 1, status: 1 });
 reportSchema.index({ status: 1, is_deleted: 1, is_archived: 1 });
 reportSchema.index({ priority: 1 });
 reportSchema.index({ created_at: -1 });

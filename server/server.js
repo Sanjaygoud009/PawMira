@@ -4,6 +4,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
+const compression = require('compression');
 const connectDB = require('./config/db');
 const { generalLimiter } = require('./middleware/rateLimiter');
 
@@ -141,6 +142,15 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Compress JSON/text API responses. Multipart request bodies are never
+// compressed; skipping their responses also keeps the upload path untouched.
+app.use(compression({
+  filter: (req, res) => {
+    if (req.is('multipart/form-data')) return false;
+    return compression.filter(req, res);
+  }
 }));
 // Server restart triggered
 

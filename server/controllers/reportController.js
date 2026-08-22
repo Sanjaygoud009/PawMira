@@ -160,11 +160,12 @@ exports.getReports = async (req, res) => {
 
     pipeline.push({ $sort: sortStage });
 
-    // 5. Project only fields the feed card needs — trims heavy array fields not used in the list
+    // 5. Project only fields required by the feed. Timeline stays complete because
+    // RescueCard uses it for progress and the active user's cancellation window.
+    // History is only a legacy fallback in the UI, so retain its most recent entries.
     pipeline.push({
       $project: {
         _id: 1,
-        reporter_name: 1,
         reporter_id: 1,
         image_url: 1,
         description: 1,
@@ -178,10 +179,9 @@ exports.getReports = async (req, res) => {
         monitors: 1,
         last_activity_at: 1,
         created_at: 1,
-        history: 1,
+        history: { $slice: ['$history', -10] },
         timeline: 1,
-        distance: 1,       // populated by $geoNear when geo is used
-        priority_weight: 1 // used for sorting, kept for transparency
+        distance: 1 // populated by $geoNear when geo is used
       }
     });
 
@@ -217,7 +217,20 @@ exports.getReports = async (req, res) => {
 
     // Format for frontend — attach flat lat/lng and resolved responder objects
     const transformed = reports.map((r) => ({
-      ...r,
+      _id: r._id,
+      reporter_id: r.reporter_id,
+      image_url: r.image_url,
+      description: r.description,
+      address: r.address,
+      issue_type: r.issue_type,
+      priority: r.priority,
+      status: r.status,
+      monitors: r.monitors || [],
+      last_activity_at: r.last_activity_at,
+      created_at: r.created_at,
+      history: r.history || [],
+      timeline: r.timeline || [],
+      distance: r.distance,
       latitude: r.location?.coordinates?.[1],
       longitude: r.location?.coordinates?.[0],
       primary_responder: r.primary_responder_info

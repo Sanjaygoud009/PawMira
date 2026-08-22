@@ -123,7 +123,7 @@ export default function RescueCard({ report, onUpdate, user }) {
 
       <div className="relative h-48 w-full bg-neutral">
         <img 
-          src={getSafeImageUrl(report.image_url)} 
+          src={getSafeImageUrl(report.image_url, undefined, 800)}
           alt={`Rescue: ${report.issue_type.replace('_', ' ')}`}
           className="w-full h-full object-cover"
           crossOrigin="anonymous"
