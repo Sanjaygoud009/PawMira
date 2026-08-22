@@ -126,6 +126,9 @@ exports.getReports = async (req, res) => {
       pipeline.push({
         $geoNear: {
           near: { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] },
+          // Two 2dsphere indexes include location; specify the geo field so
+          // MongoDB can select the intended index rather than rejecting $geoNear.
+          key: 'location',
           distanceField: 'distance',
           maxDistance: parseInt(radius),
           spherical: true,
