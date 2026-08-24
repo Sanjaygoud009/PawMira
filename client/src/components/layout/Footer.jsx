@@ -110,10 +110,10 @@ export default function Footer() {
                 <MapPin size={15} className="mt-0.5 shrink-0 text-primary" />
                 <span>Hyderabad, India</span>
               </li>
-              <li className="flex items-center gap-2.5 text-sm text-neutral-dark">
+              {/* <li className="flex items-center gap-2.5 text-sm text-neutral-dark">
                 <Phone size={15} className="shrink-0 text-primary" />
                 <span>+91 99999 xxxxx</span>
-              </li>
+              </li> */}
               <li className="flex items-center gap-2.5 text-sm text-neutral-dark">
                 <Mail size={15} className="shrink-0 text-primary" />
                 <span>pawmiraofficial@gmail.com</span>

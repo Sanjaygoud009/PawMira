@@ -40,7 +40,7 @@ export default function Contact() {
 
   const contactInfo = [
     { icon: MapPin, label: 'Address', value: 'Hyderabad, India' },
-    { icon: Phone, label: 'Phone', value: '+91 99999 99999' },
+    // { icon: Phone, label: 'Phone', value: '+91 99999 99999' },
     { icon: Mail, label: 'Email', value: 'pawmiraofficial@gmail.com' },
   ];
 
