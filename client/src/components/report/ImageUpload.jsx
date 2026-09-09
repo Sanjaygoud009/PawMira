@@ -155,7 +155,7 @@ export default function ImageUpload({ value, onImageSelect, disabled }) {
         type="file"
         accept="image/*, image/jpeg, image/png, image/webp, image/heic, image/heif"
         onChange={(e) => handleFile(e.target.files?.[0])}
-        className="hidden"
+        className="absolute opacity-0 w-0 h-0"
       />
       <input
         ref={cameraInputRef}
@@ -163,7 +163,7 @@ export default function ImageUpload({ value, onImageSelect, disabled }) {
         accept="image/*, image/jpeg, image/png, image/webp, image/heic, image/heif"
         capture="environment"
         onChange={(e) => handleFile(e.target.files?.[0])}
-        className="hidden"
+        className="absolute opacity-0 w-0 h-0"
       />
     </div>
   );
