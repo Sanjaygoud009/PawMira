@@ -28,10 +28,13 @@ export default function ImageUpload({ value, onImageSelect, disabled }) {
   const handleFile = useCallback(async (file) => {
     if (!file) return;
     
-    // Some mobile devices return empty type for valid images, so we only reject if it's explicitly NOT an image or empty
+    // Some mobile devices return empty type or generic octet-stream for valid images from gallery
     if (file.type && !file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-      toast.error('Please select a valid image file.');
-      return;
+      const isImageExtension = /\.(jpg|jpeg|png|gif|webp|heic|heif)$/i.test(file.name);
+      if (!isImageExtension) {
+        toast.error('Please select a valid image file.');
+        return;
+      }
     }
 
     // Preview immediately
@@ -150,14 +153,14 @@ export default function ImageUpload({ value, onImageSelect, disabled }) {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*, image/jpeg, image/png, image/webp, image/heic, image/heif"
         onChange={(e) => handleFile(e.target.files?.[0])}
         className="hidden"
       />
       <input
         ref={cameraInputRef}
         type="file"
-        accept="image/*"
+        accept="image/*, image/jpeg, image/png, image/webp, image/heic, image/heif"
         capture="environment"
         onChange={(e) => handleFile(e.target.files?.[0])}
         className="hidden"
