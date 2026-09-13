@@ -284,7 +284,7 @@ function DashboardResolveModal({ reportId, onClose, onSuccess }) {
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           <div className="text-center mb-4">
-            <p className="text-sm text-text-light">Provide proof of rescue to mark this emergency as resolved.</p>
+            <p className="text-sm text-text-light">Upload a clear photo showing the rescued animal. A selfie alone cannot be used as proof.</p>
           </div>
           <div>
             <label className="block text-xs font-bold text-text-light uppercase tracking-wider mb-1.5">Photo Proof *</label>

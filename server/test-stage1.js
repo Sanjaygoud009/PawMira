@@ -8,6 +8,8 @@ const { validateRescueMessage } = require('./utils/rescueChat');
 const { authenticateSocket } = require('./utils/socketAuth');
 const { buildWhatsAppReportData } = require('./utils/whatsappReport');
 const { validateTwilioSignature } = require('./utils/twilioWebhook');
+const { emitReportResponderUpdate, REPORT_RESPONDER_UPDATED, reportRoom } = require('./utils/reportRealtime');
+const { cleanupRejectedImage, validateReportImageAnalysis, validateRescueProofAnalysis } = require('./utils/imageValidator');
 
 const id = (value) => ({ toString: () => value });
 const report = {
@@ -84,4 +86,76 @@ test('Twilio validation accepts a correctly signed deployed request and rejects 
   validateTwilioSignature(request, { status: (code) => { statusCode = code; return { json: () => {} }; } }, () => assert.fail('unexpected acceptance'));
   assert.equal(statusCode, 503);
   Object.assign(process.env, previous);
+});
+
+test('report responder updates emit only to the affected report room', () => {
+  const emitted = [];
+  const io = { to: (room) => ({ emit: (event, payload) => emitted.push({ room, event, payload }) }) };
+  const updatedReport = { _id: 'report-1', primary_responder: { _id: 'user-1', name: 'Lead' }, backup_responders: [] };
+  emitReportResponderUpdate(io, updatedReport);
+  assert.deepEqual(emitted, [{ room: reportRoom('report-1'), event: REPORT_RESPONDER_UPDATED, payload: { report: updatedReport } }]);
+  emitReportResponderUpdate(io, null);
+  assert.equal(emitted.length, 1);
+});
+
+test('report realtime client helper merges state and cleans up its listener', async () => {
+  const { REPORT_RESPONDER_UPDATED, mergeReportUpdate, subscribeToReportUpdates } = await import('../client/src/utils/reportRealtime.js');
+  const listeners = new Map();
+  const socket = {
+    on: (event, listener) => listeners.set(event, listener),
+    off: (event, listener) => { if (listeners.get(event) === listener) listeners.delete(event); },
+  };
+  const current = [{ _id: 'report-1', status: 'open', backup_responders: [] }, { _id: 'report-2', status: 'open' }];
+  const updated = { _id: 'report-1', status: 'in_progress', primary_responder: { _id: 'user-1', name: 'Lead' }, backup_responders: [] };
+  assert.deepEqual(mergeReportUpdate(current, updated), [updated, current[1]]);
+  const handler = () => {};
+  const unsubscribe = subscribeToReportUpdates(socket, handler);
+  assert.equal(listeners.get(REPORT_RESPONDER_UPDATED), handler);
+  unsubscribe();
+  assert.equal(listeners.has(REPORT_RESPONDER_UPDATED), false);
+});
+
+test('rescue proof validation accepts animal photos and responder-with-animal photos', () => {
+  assert.equal(validateRescueProofAnalysis({ isAnimal: true, isSelfieOnly: false }).isRescueProof, true);
+  assert.equal(validateRescueProofAnalysis({ isAnimal: true, isSelfieOnly: false, reason: 'Responder holding a dog' }).isRescueProof, true);
+});
+
+test('rescue proof validation rejects responder-only selfies and images without animals', () => {
+  for (const analysis of [
+    { isAnimal: false, isSelfieOnly: true },
+    { isAnimal: false, isSelfieOnly: false },
+  ]) {
+    const result = validateRescueProofAnalysis(analysis);
+    assert.equal(result.isRescueProof, false);
+    assert.match(result.reason, /rescued animal|selfie alone/i);
+  }
+});
+
+test('rescue proof validation fails safely when AI output is unavailable or malformed', () => {
+  const result = validateRescueProofAnalysis(null);
+  assert.equal(result.isRescueProof, false);
+  assert.equal(result.serviceError, true);
+});
+
+test('initial report image validation accepts animal-only and human-with-animal photos', () => {
+  for (const analysis of [
+    { isAnimal: true, isHumanOnly: false, isUnclear: false },
+    { isAnimal: true, isHumanOnly: false, isUnclear: false, description: 'Person holding a dog' },
+  ]) assert.equal(validateReportImageAnalysis(analysis).isAnimal, true);
+});
+
+test('initial report image validation rejects selfies, non-animal images, and unclear results', () => {
+  for (const analysis of [
+    { isAnimal: false, isHumanOnly: true, isUnclear: false },
+    { isAnimal: false, isHumanOnly: false, isUnclear: false },
+    { isAnimal: false, isHumanOnly: false, isUnclear: true },
+  ]) assert.equal(validateReportImageAnalysis(analysis).isAnimal, false);
+  assert.equal(validateReportImageAnalysis(null).serviceError, true);
+});
+
+test('rejected Cloudinary images are cleaned up when an upload has a filename', async () => {
+  const destroyed = [];
+  await cleanupRejectedImage({ filename: 'rejected-image' }, { destroy: async (filename) => destroyed.push(filename) });
+  await cleanupRejectedImage({ path: 'no-filename' }, { destroy: async () => assert.fail('unexpected cleanup') });
+  assert.deepEqual(destroyed, ['rejected-image']);
 });

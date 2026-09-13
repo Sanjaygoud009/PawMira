@@ -47,6 +47,9 @@ const RescueMessage = require('./models/RescueMessage');
 const { authenticateSocket } = require('./utils/socketAuth');
 const { canAccessRescueChat } = require('./utils/reportAuthorization');
 const { validateRescueMessage } = require('./utils/rescueChat');
+const { reportRoom } = require('./utils/reportRealtime');
+
+app.set('io', io);
 
 const acknowledge = (callback, payload) => {
   if (typeof callback === 'function') callback(payload);
@@ -88,6 +91,29 @@ io.on('connection', (socket) => {
   socket.on('leave_rescue_room', (reportId) => {
     socket.leave(`rescue_${reportId}`);
     console.log(`[SOCKET] socket=${socket.id} left rescue_${reportId}`);
+  });
+
+  socket.on('join_report_updates', async (reportId, callback) => {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(reportId)) {
+        return acknowledge(callback, { ok: false, error: 'Invalid rescue report ID' });
+      }
+
+      const report = await Report.findById(reportId).select('_id is_deleted');
+      if (!report || report.is_deleted) {
+        return acknowledge(callback, { ok: false, error: 'Rescue report not found' });
+      }
+
+      await socket.join(reportRoom(reportId));
+      acknowledge(callback, { ok: true });
+    } catch (error) {
+      console.error('[SOCKET_ERROR] join_report_updates:', error);
+      acknowledge(callback, { ok: false, error: 'Unable to join rescue updates' });
+    }
+  });
+
+  socket.on('leave_report_updates', (reportId) => {
+    socket.leave(reportRoom(reportId));
   });
 
   socket.on('send_rescue_message', async (data = {}, callback) => {

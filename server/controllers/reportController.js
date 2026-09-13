@@ -2,11 +2,12 @@ const Report = require('../models/Report');
 const User = require('../models/User');
 const mongoose = require('mongoose');
 const { awardHearts } = require('../utils/gamification');
-const { validateAnimalImage } = require('../utils/imageValidator');
+const { cleanupRejectedImage, validateAnimalImage, validateRescueProofImage } = require('../utils/imageValidator');
 const cloudinary = require('../config/cloudinary');
 const { parseReportsQuery } = require('../utils/reportQuery');
 const { canManageReport } = require('../utils/reportAuthorization');
 const { isValidCoordinates } = require('../utils/coordinates');
+const { emitReportResponderUpdate } = require('../utils/reportRealtime');
 
 const parseCoordinate = (value) => (
   typeof value === 'number' || (typeof value === 'string' && value.trim() !== '')
@@ -36,9 +37,7 @@ exports.createReport = async (req, res) => {
     // AI Image Validation
     const validation = await validateAnimalImage(req.file.path);
     if (validation.serviceError) {
-      if (req.file.filename) {
-        await cloudinary.uploader.destroy(req.file.filename).catch(() => {});
-      }
+      await cleanupRejectedImage(req.file, cloudinary.uploader);
       return res.status(503).json({
         message: 'AI image verification is temporarily unavailable. Please try again shortly.',
         code: 'AI_VALIDATION_UNAVAILABLE'
@@ -46,14 +45,10 @@ exports.createReport = async (req, res) => {
     }
 
     if (!validation.isAnimal) {
-      // Delete the non-animal image from Cloudinary
-      if (req.file.filename) {
-        await cloudinary.uploader.destroy(req.file.filename).catch(() => {});
-      }
+      await cleanupRejectedImage(req.file, cloudinary.uploader);
       return res.status(400).json({ 
-        message: 'Our AI could not detect an animal in this image.',
+        message: validation.reason || 'Please upload a clearer photo where the animal is visible.',
         code: 'AI_ANIMAL_NOT_DETECTED',
-        reason: validation.reason 
       });
     }
 
@@ -330,7 +325,8 @@ exports.respondToReport = async (req, res) => {
       .populate('primary_responder', 'name')
       .populate('backup_responders', 'name')
       .lean();
-      
+
+    emitReportResponderUpdate(req.app.get('io'), populatedReport);
     res.json(populatedReport);
   } catch (error) {
     res.status(500).json({ message: 'Failed to respond to report' });
@@ -416,6 +412,11 @@ exports.addReportUpdate = async (req, res) => {
     const { update_type, text } = req.body;
     const report = await Report.findById(req.params.id);
     if (!report || report.is_deleted) return res.status(404).json({ message: 'Report not found' });
+    if (update_type === 'safe') {
+      return res.status(400).json({
+        message: 'Marking a report safe requires the resolution photo workflow.',
+      });
+    }
 
     const newUpdate = {
       update_type: update_type || 'general',
@@ -432,7 +433,6 @@ exports.addReportUpdate = async (req, res) => {
     report.last_activity_at = new Date();
 
     if (update_type === 'treatment') report.status = 'under_treatment';
-    if (update_type === 'safe') report.status = 'safe';
 
     report.timeline.push({
       event_type: update_type || 'update',
@@ -562,6 +562,21 @@ exports.resolveReport = async (req, res) => {
       return res.status(400).json({ message: 'Resolution photo is required.' });
     }
 
+    const proofValidation = await validateRescueProofImage(req.file.path, report);
+    if (!proofValidation.isRescueProof) {
+      await cleanupRejectedImage(req.file, cloudinary.uploader);
+      if (proofValidation.serviceError) {
+        return res.status(503).json({
+          message: 'AI image verification is temporarily unavailable. Please try again shortly.',
+          code: 'AI_VALIDATION_UNAVAILABLE',
+        });
+      }
+      return res.status(400).json({
+        message: 'Please upload a photo showing the rescued animal. A selfie alone cannot be used as rescue proof.',
+        code: 'RESCUE_PROOF_ANIMAL_REQUIRED',
+      });
+    }
+
     report.status = 'safe';
     report.is_archived = true;
     report.resolution_image_url = req.file.path;
@@ -590,7 +605,12 @@ exports.resolveReport = async (req, res) => {
       await awardHearts({ userId: req.user._id, actionType: 'safe_marked', points: 10, reportId: report._id });
     }
 
-    res.json(report);
+    const resolvedReport = await Report.findById(report._id)
+      .populate('primary_responder', 'name')
+      .populate('backup_responders', 'name')
+      .lean();
+    emitReportResponderUpdate(req.app.get('io'), resolvedReport);
+    res.json(resolvedReport);
   } catch (error) {
     console.error(`[REPORT_ERROR] resolveReport: ${error.message}`);
     res.status(500).json({ message: 'Failed to resolve report' });

@@ -13,6 +13,10 @@ import EmptyState from '../components/ui/EmptyState';
 import { AnimatePresence, motion } from 'framer-motion';
 import ImageUpload from '../components/report/ImageUpload';
 import toast from 'react-hot-toast';
+import { io } from 'socket.io-client';
+import { mergeReportUpdate, subscribeToReportUpdates } from '../utils/reportRealtime';
+
+const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://127.0.0.1:5000';
 
 function Modal({ title, onClose, children }) {
   return (
@@ -65,7 +69,7 @@ function ResolveReportForm({ reportId, onClose, onSuccess }) {
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path></svg>
         </div>
         <h3 className="text-xl font-bold text-dark">Mark as Safe</h3>
-        <p className="text-sm text-text-light mt-1">Provide proof of rescue to mark this emergency as resolved.</p>
+        <p className="text-sm text-text-light mt-1">Upload a clear photo showing the rescued animal. A selfie alone cannot be used as proof.</p>
       </div>
       
       <div>
@@ -133,6 +137,8 @@ export default function RescueFeed() {
   // A new reset invalidates every older request, including in-flight Load More requests.
   const fetchIdRef = useRef(0);
   const loadingMoreRef = useRef(false);
+  const socketRef = useRef(null);
+  const subscribedReportIdsRef = useRef(new Set());
 
   // Build base query string (without page/limit)
   const buildGeoQuery = useCallback((lat, lng) => {
@@ -216,6 +222,51 @@ export default function RescueFeed() {
   }, [fetchPage]);
 
   useEffect(() => {
+    if (!user) return undefined;
+
+    const socket = io(SOCKET_URL, {
+      auth: { token: localStorage.getItem('pawmira_token') },
+      forceNew: true,
+    });
+    socketRef.current = socket;
+
+    const joinVisibleReports = () => {
+      subscribedReportIdsRef.current.forEach((reportId) => {
+        socket.emit('join_report_updates', reportId);
+      });
+    };
+    const handleReportUpdate = ({ report }) => {
+      if (report?._id) setReports((current) => mergeReportUpdate(current, report));
+    };
+
+    socket.on('connect', joinVisibleReports);
+    const unsubscribe = subscribeToReportUpdates(socket, handleReportUpdate);
+    if (socket.connected) joinVisibleReports();
+
+    return () => {
+      subscribedReportIdsRef.current.forEach((reportId) => socket.emit('leave_report_updates', reportId));
+      unsubscribe();
+      socket.off('connect', joinVisibleReports);
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [user]);
+
+  useEffect(() => {
+    const nextIds = new Set(reports.map((report) => report._id));
+    const socket = socketRef.current;
+    if (socket?.connected) {
+      subscribedReportIdsRef.current.forEach((reportId) => {
+        if (!nextIds.has(reportId)) socket.emit('leave_report_updates', reportId);
+      });
+      nextIds.forEach((reportId) => {
+        if (!subscribedReportIdsRef.current.has(reportId)) socket.emit('join_report_updates', reportId);
+      });
+    }
+    subscribedReportIdsRef.current = nextIds;
+  }, [reports]);
+
+  useEffect(() => {
     const handleOpenResolve = (e) => setResolveReportId(e.detail);
     window.addEventListener('openResolveModal', handleOpenResolve);
     return () => window.removeEventListener('openResolveModal', handleOpenResolve);
@@ -259,7 +310,7 @@ export default function RescueFeed() {
 
   const handleUpdate = (updatedReport) => {
     if (updatedReport && updatedReport._id) {
-      setReports(prev => prev.map(r => r._id === updatedReport._id ? { ...r, ...updatedReport } : r));
+      setReports(prev => mergeReportUpdate(prev, updatedReport));
     } else {
       // Full refresh
       if (userLocation) fetchPage(1, userLocation[0], userLocation[1], true);

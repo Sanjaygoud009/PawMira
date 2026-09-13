@@ -171,17 +171,12 @@ export default function ReportEmergency() {
     } catch (err) {
       const errorData = err.response?.data || {};
       const message = String(errorData?.message || '');
-      const reason = String(errorData?.reason || '');
-
       if (errorData?.code === 'AI_ANIMAL_NOT_DETECTED') {
         setAiError('not_detected');
       } else if (errorData?.code === 'AI_VALIDATION_UNAVAILABLE') {
         setAiError('unavailable');
       } else {
         let errorMessage = message || 'Something went wrong. Try again.';
-        if (errorData?.reason) {
-          errorMessage += `\nReason: ${errorData.reason}`;
-        }
         toast.error(errorMessage, { duration: 8000 });
       }
     } finally {
@@ -254,7 +249,7 @@ export default function ReportEmergency() {
               <p className="text-slate-500 font-medium leading-relaxed mb-8">
                 {aiError === 'unavailable'
                   ? 'We could not verify the image right now. Your report was not submitted. Please try again shortly.'
-                  : 'Our AI could not detect an animal in the image you uploaded. Please try a clearer photo so responders know what to look for!'}
+                  : 'Please upload a photo showing the animal you are reporting. Photos containing only people cannot be used for an animal emergency report.'}
               </p>
               
               <button
