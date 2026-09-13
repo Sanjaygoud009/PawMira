@@ -1,159 +1,187 @@
+'use strict';
+
+const crypto = require('crypto');
 const cron = require('node-cron');
 const Report = require('../models/Report');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const { isValidCoordinates } = require('../utils/coordinates');
 
-// Radius constants in metres (MongoDB $centerSphere uses radians: metres / Earth radius)
 const EARTH_RADIUS_M = 6378100;
-const NGO_RADIUS_M = 25000; // 25 km
+const VOLUNTEER_RADIUS_NEAR_M = 10000;
+const VOLUNTEER_RADIUS_FAR_M = 25000;
+const NGO_RADIUS_M = 25000;
+const LEASE_MS = 2 * 60 * 1000;
+const JOB_KEYS = ['initial_volunteer', 'escalation_ngo', 'escalation_admin'];
 
-/**
- * Build a $geoWithin/$centerSphere query for a given radius around a point.
- * Returns null if the coordinates are missing or structurally invalid so that
- * callers can skip geo-queries rather than accidentally doing global lookups.
- *
- * @param {number[]} coordinates - [longitude, latitude] from the report
- * @param {number} radiusM - search radius in metres
- * @returns {object|null}
- */
 const buildGeoQuery = (coordinates, radiusM) => {
-  if (
-    !Array.isArray(coordinates) ||
-    coordinates.length < 2 ||
-    typeof coordinates[0] !== 'number' ||
-    typeof coordinates[1] !== 'number' ||
-    !isFinite(coordinates[0]) ||
-    !isFinite(coordinates[1])
-  ) {
-    return null;
-  }
-  return {
-    location: {
-      $geoWithin: {
-        $centerSphere: [coordinates, radiusM / EARTH_RADIUS_M],
-      },
-    },
-  };
+  if (!isValidCoordinates(coordinates)) return null;
+  return { location: { $geoWithin: { $centerSphere: [coordinates, radiusM / EARTH_RADIUS_M] } } };
 };
 
-/**
- * Find verified users of a given role near the supplied coordinates.
- * Returns an empty array (never throws) if coordinates are invalid.
- *
- * @param {'volunteer'|'ngo'|'admin'} role
- * @param {number[]} coordinates - [lng, lat]
- * @param {number} radiusM
- * @returns {Promise<{_id: ObjectId}[]>}
- */
-const findNearbyUsers = async (role, coordinates, radiusM) => {
+const findNearbyUsers = async (role, coordinates, radiusM, UserModel = User) => {
   const geoQuery = buildGeoQuery(coordinates, radiusM);
   if (!geoQuery) return [];
-  return User.find({ role, isVerified: true, ...geoQuery }).select('_id').lean();
+  return UserModel.find({ role, isVerified: true, ...geoQuery }).select('_id').lean();
 };
 
-/**
- * Core escalation worker.
- *
- * For every eligible report (open/pending, deadline passed, escalation_level === 0)
- * we atomically claim it with findOneAndUpdate before sending any notifications.
- * Only the execution that successfully flips escalation_level 0 → 1 will send
- * NGO/admin notifications, preventing duplicate notifications in concurrent runs.
- */
-const runEscalation = async () => {
-  try {
-    const now = new Date();
+const jobPath = (key, field) => `notification_jobs.${key}.${field}`;
 
-    // Keep claiming reports one at a time until none are left.
-    // This avoids loading all eligible reports into memory at once and
-    // ensures each iteration works on a freshly-claimed document.
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      // Atomic claim: find a report that needs escalation AND transition it
-      // in the same operation.  If two workers run simultaneously only one
-      // will receive the updated document; the other will get null and skip.
-      const report = await Report.findOneAndUpdate(
-        {
-          status: { $in: ['open', 'pending'] },
-          is_deleted: false,
-          response_deadline: { $lte: now },
-          escalation_level: 0, // only unclaimed reports
-        },
-        {
-          $set: {
-            escalation_level: 1,
-            escalated_at: now,
-            last_notification_at: now,
-          },
-          $push: {
-            timeline: {
-              event_type: 'escalated',
-              description:
-                'One-time escalation: nearby NGOs and coordinators alerted due to lack of response.',
-              created_at: now,
-            },
-          },
-        },
-        {
-          new: true,       // return the updated document
-          lean: true,      // plain JS object – we only need fields, not a Mongoose doc
-        }
-      );
+const jobClaimFilter = (key, now) => ({
+  $or: [
+    { [jobPath(key, 'state')]: 'pending' },
+    { [jobPath(key, 'state')]: 'processing', [jobPath(key, 'lease_expires_at')]: { $lte: now } },
+  ],
+});
 
-      // No more eligible reports – we're done for this tick.
-      if (!report) break;
+const buildNotificationOperations = (notifications) => notifications.map((notification) => ({
+  updateOne: {
+    filter: {
+      user_id: notification.user_id,
+      reference_id: notification.reference_id,
+      reference_model: notification.reference_model,
+      notification_event: notification.notification_event,
+    },
+    update: { $setOnInsert: notification },
+    upsert: true,
+  },
+}));
 
-      const coordinates = report.location?.coordinates; // [lng, lat] or undefined
-
-      // ── NGO notifications (25 km, geo-gated) ──────────────────────────────
-      const ngos = await findNearbyUsers('ngo', coordinates, NGO_RADIUS_M);
-
-      // ── Admin notifications (global) ──────────────────────────────────────
-      const admins = await User.find({ role: 'admin', isVerified: true })
-        .select('_id')
-        .lean();
-
-      // Build the notification batch
-      const notifications = [];
-
-      for (const ngo of ngos) {
-        notifications.push({
-          user_id: ngo._id,
-          type: 'escalation',
-          title: '🆘 NGO Support Needed',
-          message: `An emergency rescue near you has been unattended. Please respond!`,
-          reference_id: report._id,
-          reference_model: 'Report',
-        });
-      }
-
-      for (const admin of admins) {
-        notifications.push({
-          user_id: admin._id,
-          type: 'system',
-          title: '🔥 Escalated Emergency Alert',
-          message: `Report ${report._id} has been unattended past its deadline and has been escalated. Immediate review required.`,
-          reference_id: report._id,
-          reference_model: 'Report',
-        });
-      }
-
-      if (notifications.length > 0) {
-        await Notification.insertMany(notifications);
-      }
-
-      console.log(
-        `[ESCALATION] report=${report._id} ngos_notified=${ngos.length} admins_notified=${admins.length}`
-      );
-    }
-  } catch (error) {
-    console.error('[ESCALATION_ERROR]', error.message);
+const buildNotifications = async (report, key, UserModel) => {
+  const reference = { reference_id: report._id, reference_model: 'Report' };
+  if (key === 'initial_volunteer') {
+    const coordinates = report.location?.coordinates;
+    let volunteers = await findNearbyUsers('volunteer', coordinates, VOLUNTEER_RADIUS_NEAR_M, UserModel);
+    if (volunteers.length === 0) volunteers = await findNearbyUsers('volunteer', coordinates, VOLUNTEER_RADIUS_FAR_M, UserModel);
+    return volunteers.map((user) => ({
+      user_id: user._id, type: 'escalation', title: 'Urgent Rescue Needed',
+      message: `A ${report.priority} priority rescue near you needs a responder. Can you help?`,
+      notification_event: 'initial_volunteer', ...reference,
+    }));
   }
+  if (key === 'escalation_ngo') {
+    const ngos = await findNearbyUsers('ngo', report.location?.coordinates, NGO_RADIUS_M, UserModel);
+    return ngos.map((user) => ({
+      user_id: user._id, type: 'escalation', title: 'NGO Support Needed',
+      message: 'An emergency rescue near you has been unattended. Please respond!',
+      notification_event: 'escalation_ngo', ...reference,
+    }));
+  }
+  if (key === 'escalation_admin') {
+    const admins = await UserModel.find({ role: 'admin', isVerified: true }).select('_id').lean();
+    return admins.map((user) => ({
+      user_id: user._id, type: 'system', title: 'Escalated Emergency Alert',
+      message: `Report ${report._id} has been unattended past its deadline and has been escalated. Immediate review required.`,
+      notification_event: 'escalation_admin', ...reference,
+    }));
+  }
+  throw new Error(`Unknown notification job: ${key}`);
 };
 
+const createEscalationWorker = ({
+  ReportModel = Report,
+  NotificationModel = Notification,
+  UserModel = User,
+  now = () => new Date(),
+  createLeaseOwner = () => crypto.randomUUID(),
+} = {}) => {
+  const claimNotificationJob = async (key, reportId) => {
+    const claimedAt = now();
+    const leaseOwner = createLeaseOwner();
+    const filter = jobClaimFilter(key, claimedAt);
+    if (reportId) filter._id = reportId;
+    const report = await ReportModel.findOneAndUpdate(filter, {
+      $set: {
+        [jobPath(key, 'state')]: 'processing',
+        [jobPath(key, 'lease_owner')]: leaseOwner,
+        [jobPath(key, 'lease_expires_at')]: new Date(claimedAt.getTime() + LEASE_MS),
+      },
+    }, { new: true, lean: true });
+    return report ? { report, leaseOwner } : null;
+  };
+
+  const completeNotificationJob = async (reportId, key, leaseOwner) => {
+    const result = await ReportModel.updateOne({
+      _id: reportId,
+      [jobPath(key, 'state')]: 'processing',
+      [jobPath(key, 'lease_owner')]: leaseOwner,
+    }, {
+      $set: { [jobPath(key, 'state')]: 'completed' },
+      $unset: { [jobPath(key, 'lease_owner')]: '', [jobPath(key, 'lease_expires_at')]: '' },
+    });
+    return result.modifiedCount === 1;
+  };
+
+  const processNotificationJob = async (reportId, key) => {
+    const claim = await claimNotificationJob(key, reportId);
+    if (!claim) return false;
+    try {
+      const notifications = await buildNotifications(claim.report, key, UserModel);
+      if (notifications.length) {
+        await NotificationModel.bulkWrite(buildNotificationOperations(notifications), { ordered: false });
+      }
+      return completeNotificationJob(claim.report._id, key, claim.leaseOwner);
+    } catch (error) {
+      // Keep the lease until expiry. A retry can upsert missing recipients
+      // without duplicating records already written by this attempt.
+      console.error(`[NOTIFICATION_JOB_ERROR] report=${claim.report._id} job=${key} ${error.message}`);
+      return false;
+    }
+  };
+
+  const runPendingNotificationJobs = async () => {
+    for (const key of JOB_KEYS) {
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const completed = await processNotificationJob(undefined, key);
+        if (!completed) break;
+      }
+    }
+  };
+
+  const runEscalation = async () => {
+    const deadline = now();
+    try {
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const report = await ReportModel.findOneAndUpdate({
+          status: 'open', is_deleted: false, response_deadline: { $lte: deadline }, escalation_level: 0,
+        }, {
+          $set: {
+            escalation_level: 1, escalated_at: deadline, last_notification_at: deadline,
+            'notification_jobs.escalation_ngo.state': 'pending',
+            'notification_jobs.escalation_admin.state': 'pending',
+          },
+          $push: { timeline: {
+            event_type: 'escalated',
+            description: 'One-time escalation: nearby NGOs and coordinators alerted due to lack of response.',
+            created_at: deadline,
+          } },
+        }, { new: true, lean: true });
+        if (!report) break;
+      }
+      await runPendingNotificationJobs();
+    } catch (error) {
+      console.error('[ESCALATION_ERROR]', error.message);
+    }
+  };
+
+  return { claimNotificationJob, completeNotificationJob, processNotificationJob, runEscalation, runPendingNotificationJobs };
+};
+
+const defaultWorker = createEscalationWorker();
 const startEscalationService = () => {
-  // Keep the existing 1-minute schedule unchanged.
-  cron.schedule('* * * * *', runEscalation);
+  cron.schedule('* * * * *', defaultWorker.runEscalation);
   console.log('Escalation service scheduled to run every minute.');
 };
 
-module.exports = { startEscalationService, runEscalation, buildGeoQuery, findNearbyUsers };
+module.exports = {
+  startEscalationService,
+  runEscalation: defaultWorker.runEscalation,
+  processNotificationJob: defaultWorker.processNotificationJob,
+  buildGeoQuery,
+  buildNotificationOperations,
+  createEscalationWorker,
+  findNearbyUsers,
+  jobClaimFilter,
+};

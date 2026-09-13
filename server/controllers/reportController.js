@@ -1,17 +1,18 @@
 const Report = require('../models/Report');
 const User = require('../models/User');
-const Notification = require('../models/Notification');
 const mongoose = require('mongoose');
 const { awardHearts } = require('../utils/gamification');
 const { validateAnimalImage } = require('../utils/imageValidator');
 const cloudinary = require('../config/cloudinary');
 const { parseReportsQuery } = require('../utils/reportQuery');
 const { canManageReport } = require('../utils/reportAuthorization');
-const { findNearbyUsers } = require('../services/escalationService');
+const { isValidCoordinates } = require('../utils/coordinates');
 
-// Radius constants for initial volunteer notification
-const VOLUNTEER_RADIUS_NEAR_M = 10000;  // 10 km
-const VOLUNTEER_RADIUS_FAR_M  = 25000;  // 25 km fallback
+const parseCoordinate = (value) => (
+  typeof value === 'number' || (typeof value === 'string' && value.trim() !== '')
+    ? Number(value)
+    : NaN
+);
 
 // @desc    Create a new report
 // @route   POST /api/reports
@@ -19,8 +20,13 @@ exports.createReport = async (req, res) => {
   try {
     const { reporter_name, reporter_phone, description, latitude, longitude, address, issue_type, priority } = req.body;
 
-    if (!reporter_phone || !latitude || !longitude || !issue_type) {
+    if (!reporter_phone || latitude === undefined || longitude === undefined || !issue_type) {
       return res.status(400).json({ message: 'Phone, location, and issue type are required' });
+    }
+
+    const coordinates = [parseCoordinate(longitude), parseCoordinate(latitude)];
+    if (!isValidCoordinates(coordinates)) {
+      return res.status(400).json({ message: 'Location must use valid longitude and latitude coordinates' });
     }
     
     if (!req.file) {
@@ -69,7 +75,7 @@ exports.createReport = async (req, res) => {
       description,
       location: {
         type: 'Point',
-        coordinates: [parseFloat(longitude), parseFloat(latitude)],
+        coordinates,
       },
       address,
       issue_type,
@@ -77,7 +83,10 @@ exports.createReport = async (req, res) => {
       source: 'web',
       response_deadline: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes deadline
       history: [{ status: 'open', updated_at: new Date() }],
-      timeline: [{ event_type: 'created', description: 'Emergency reported by community.', created_at: new Date() }]
+      timeline: [{ event_type: 'created', description: 'Emergency reported by community.', created_at: new Date() }],
+      notification_jobs: {
+        initial_volunteer: { state: 'pending' },
+      },
     };
 
     if (req.user) {
@@ -91,29 +100,13 @@ exports.createReport = async (req, res) => {
       await awardHearts({ userId: req.user._id, actionType: 'report_created', points: 1, reportId: report._id });
     }
 
-    // Notify nearby volunteers immediately after creation.
-    // Only runs when the report has valid coordinates (guaranteed by schema validation above).
+    // Claim and process the durable job immediately. A failed attempt retains
+    // its lease until the cron worker can safely retry it.
     try {
-      const coords = report.location?.coordinates; // [lng, lat]
-      let volunteers = await findNearbyUsers('volunteer', coords, VOLUNTEER_RADIUS_NEAR_M);
-      if (volunteers.length === 0) {
-        volunteers = await findNearbyUsers('volunteer', coords, VOLUNTEER_RADIUS_FAR_M);
-      }
-      if (volunteers.length > 0) {
-        const volunteerNotifications = volunteers.map((v) => ({
-          user_id: v._id,
-          type: 'escalation',
-          title: '🚨 Urgent Rescue Needed',
-          message: `A ${report.priority} priority rescue near you needs a responder. Can you help?`,
-          reference_id: report._id,
-          reference_model: 'Report',
-        }));
-        await Notification.insertMany(volunteerNotifications);
-        console.log(`[REPORT_CREATED] volunteer_notifications=${volunteers.length} report=${report._id}`);
-      }
+      const { processNotificationJob } = require('../services/escalationService');
+      await processNotificationJob(report._id, 'initial_volunteer');
     } catch (notifErr) {
-      // Non-fatal: log and continue – the report was already saved successfully.
-      console.error(`[REPORT_CREATED] volunteer notification error: ${notifErr.message}`);
+      console.error(`[REPORT_CREATED] initial volunteer job error: ${notifErr.message}`);
     }
 
     console.log(`[REPORT_CREATED] id=${report._id} phone=${reporter_phone} issue=${issue_type} priority=${report.priority}`);

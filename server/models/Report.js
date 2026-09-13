@@ -1,4 +1,15 @@
 const mongoose = require('mongoose');
+const { isValidCoordinates } = require('../utils/coordinates');
+
+const notificationJobSchema = new mongoose.Schema({
+  state: {
+    type: String,
+    enum: ['pending', 'processing', 'completed'],
+    default: 'pending',
+  },
+  lease_owner: String,
+  lease_expires_at: Date,
+}, { _id: false });
 
 const reportSchema = new mongoose.Schema({
   reporter_name: {
@@ -31,6 +42,10 @@ const reportSchema = new mongoose.Schema({
     coordinates: {
       type: [Number], // [longitude, latitude]
       required: [true, 'Location coordinates are required'],
+      validate: {
+        validator: isValidCoordinates,
+        message: 'Coordinates must be [longitude, latitude] within valid geographic ranges',
+      },
     },
   },
   address: {
@@ -173,6 +188,11 @@ const reportSchema = new mongoose.Schema({
   },
   response_deadline: {
     type: Date,
+  },
+  notification_jobs: {
+    initial_volunteer: { type: notificationJobSchema },
+    escalation_ngo: { type: notificationJobSchema },
+    escalation_admin: { type: notificationJobSchema },
   },
   timeline: [
     {
