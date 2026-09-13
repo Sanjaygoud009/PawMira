@@ -57,6 +57,10 @@ exports.register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ message: 'Invalid input format' });
+    }
+
     // Prevent duplicate submissions for the same email
     if (pendingRegistrations.has(email)) {
       return res.status(200).json({ message: 'OTP is already being sent. Please check your email.' });
@@ -114,6 +118,10 @@ exports.verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
     
+    if (typeof email !== 'string' || typeof otp !== 'string') {
+      return res.status(400).json({ message: 'Invalid input format' });
+    }
+
     if (!email || !otp) {
       return res.status(400).json({ message: 'Email and OTP are required' });
     }
@@ -159,6 +167,10 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ message: 'Invalid input format' });
+    }
+
     if (!email || !password) {
       return res.status(400).json({ message: 'Please provide email and password' });
     }
@@ -201,6 +213,9 @@ exports.getMe = async (req, res) => {
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
+    if (typeof email !== 'string') {
+      return res.status(400).json({ message: 'Invalid input format' });
+    }
     if (!email) return res.status(400).json({ message: 'Please provide your email address' });
 
     const user = await User.findOne({ email });
@@ -246,7 +261,7 @@ exports.forgotPassword = async (req, res) => {
   } catch (error) {
     console.error(`[AUTH_ERROR] forgotPassword: ${error.message}`);
     // If saving fails, clear fields
-    if (req.body.email) {
+    if (req.body.email && typeof req.body.email === 'string') {
       try {
         const user = await User.findOne({ email: req.body.email });
         if (user) {
@@ -266,6 +281,10 @@ exports.resetPassword = async (req, res) => {
   try {
     const { password } = req.body;
     
+    if (typeof password !== 'string') {
+      return res.status(400).json({ message: 'Invalid input format' });
+    }
+
     // Hash token from URL to compare with DB
     const hashedToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
 

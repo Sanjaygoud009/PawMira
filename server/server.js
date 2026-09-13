@@ -195,10 +195,18 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error(`[SERVER_ERROR] ${err.message}`);
-  res.status(err.status || 500).json({
-    message: err.message || 'Internal server error',
-  });
+  // Preserve useful detailed errors in server-side logs
+  console.error(`[SERVER_ERROR] ${err.stack || err.message}`);
+  
+  const status = err.status || 500;
+  let message = err.message || 'Internal server error';
+
+  // In production, hide internal database/schema error details for 5xx errors
+  if (process.env.NODE_ENV === 'production' && status >= 500) {
+    message = 'Internal server error';
+  }
+
+  res.status(status).json({ message });
 });
 
 // Start server
