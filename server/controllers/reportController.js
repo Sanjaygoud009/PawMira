@@ -1,11 +1,17 @@
 const Report = require('../models/Report');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const mongoose = require('mongoose');
 const { awardHearts } = require('../utils/gamification');
 const { validateAnimalImage } = require('../utils/imageValidator');
 const cloudinary = require('../config/cloudinary');
 const { parseReportsQuery } = require('../utils/reportQuery');
 const { canManageReport } = require('../utils/reportAuthorization');
+const { findNearbyUsers } = require('../services/escalationService');
+
+// Radius constants for initial volunteer notification
+const VOLUNTEER_RADIUS_NEAR_M = 10000;  // 10 km
+const VOLUNTEER_RADIUS_FAR_M  = 25000;  // 25 km fallback
 
 // @desc    Create a new report
 // @route   POST /api/reports
@@ -83,6 +89,31 @@ exports.createReport = async (req, res) => {
 
     if (req.user) {
       await awardHearts({ userId: req.user._id, actionType: 'report_created', points: 1, reportId: report._id });
+    }
+
+    // Notify nearby volunteers immediately after creation.
+    // Only runs when the report has valid coordinates (guaranteed by schema validation above).
+    try {
+      const coords = report.location?.coordinates; // [lng, lat]
+      let volunteers = await findNearbyUsers('volunteer', coords, VOLUNTEER_RADIUS_NEAR_M);
+      if (volunteers.length === 0) {
+        volunteers = await findNearbyUsers('volunteer', coords, VOLUNTEER_RADIUS_FAR_M);
+      }
+      if (volunteers.length > 0) {
+        const volunteerNotifications = volunteers.map((v) => ({
+          user_id: v._id,
+          type: 'escalation',
+          title: '🚨 Urgent Rescue Needed',
+          message: `A ${report.priority} priority rescue near you needs a responder. Can you help?`,
+          reference_id: report._id,
+          reference_model: 'Report',
+        }));
+        await Notification.insertMany(volunteerNotifications);
+        console.log(`[REPORT_CREATED] volunteer_notifications=${volunteers.length} report=${report._id}`);
+      }
+    } catch (notifErr) {
+      // Non-fatal: log and continue – the report was already saved successfully.
+      console.error(`[REPORT_CREATED] volunteer notification error: ${notifErr.message}`);
     }
 
     console.log(`[REPORT_CREATED] id=${report._id} phone=${reporter_phone} issue=${issue_type} priority=${report.priority}`);
@@ -352,6 +383,10 @@ exports.cancelResponse = async (req, res) => {
       } else {
         report.primary_responder = undefined;
         report.status = 'open'; // Revert to open if no responders
+        // Give a fresh 30-minute window so nearby volunteers have time to
+        // pick this up again.  We deliberately do NOT reset escalation_level:
+        // if the one-time escalation has already fired it must not fire again.
+        report.response_deadline = new Date(Date.now() + 30 * 60 * 1000);
       }
     } else if (isBackup) {
       report.backup_responders = report.backup_responders.filter(id => id.toString() !== userId);
