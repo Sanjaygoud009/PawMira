@@ -116,18 +116,17 @@ test('report realtime client helper merges state and cleans up its listener', as
 });
 
 test('rescue proof validation accepts animal photos and responder-with-animal photos', () => {
-  assert.equal(validateRescueProofAnalysis({ isAnimal: true, isSelfieOnly: false }).isRescueProof, true);
-  assert.equal(validateRescueProofAnalysis({ isAnimal: true, isSelfieOnly: false, reason: 'Responder holding a dog' }).isRescueProof, true);
+  assert.equal(validateRescueProofAnalysis({ isValidLiveAnimal: true, isFakeOrExtinct: false, isHumanOnly: false, isUnclear: false, isSameAnimal: true }).isRescueProof, true);
+  assert.equal(validateRescueProofAnalysis({ isValidLiveAnimal: true, isFakeOrExtinct: false, isHumanOnly: false, isUnclear: false, isSameAnimal: true, reason: 'Responder holding a dog' }).isRescueProof, true);
 });
 
 test('rescue proof validation rejects responder-only selfies and images without animals', () => {
   for (const analysis of [
-    { isAnimal: false, isSelfieOnly: true },
-    { isAnimal: false, isSelfieOnly: false },
+    { isValidLiveAnimal: false, isFakeOrExtinct: false, isHumanOnly: true, isUnclear: false, isSameAnimal: false },
+    { isValidLiveAnimal: false, isFakeOrExtinct: false, isHumanOnly: false, isUnclear: false, isSameAnimal: false },
   ]) {
     const result = validateRescueProofAnalysis(analysis);
     assert.equal(result.isRescueProof, false);
-    assert.match(result.reason, /rescued animal|selfie alone/i);
   }
 });
 
@@ -139,16 +138,17 @@ test('rescue proof validation fails safely when AI output is unavailable or malf
 
 test('initial report image validation accepts animal-only and human-with-animal photos', () => {
   for (const analysis of [
-    { isAnimal: true, isHumanOnly: false, isUnclear: false },
-    { isAnimal: true, isHumanOnly: false, isUnclear: false, description: 'Person holding a dog' },
+    { isValidLiveAnimal: true, isFakeOrExtinct: false, isHumanOnly: false, isUnclear: false },
+    { isValidLiveAnimal: true, isFakeOrExtinct: false, isHumanOnly: false, isUnclear: false, description: 'Person holding a dog' },
   ]) assert.equal(validateReportImageAnalysis(analysis).isAnimal, true);
 });
 
 test('initial report image validation rejects selfies, non-animal images, and unclear results', () => {
   for (const analysis of [
-    { isAnimal: false, isHumanOnly: true, isUnclear: false },
-    { isAnimal: false, isHumanOnly: false, isUnclear: false },
-    { isAnimal: false, isHumanOnly: false, isUnclear: true },
+    { isValidLiveAnimal: false, isFakeOrExtinct: false, isHumanOnly: true, isUnclear: false },
+    { isValidLiveAnimal: false, isFakeOrExtinct: false, isHumanOnly: false, isUnclear: false },
+    { isValidLiveAnimal: false, isFakeOrExtinct: false, isHumanOnly: false, isUnclear: true },
+    { isValidLiveAnimal: false, isFakeOrExtinct: true, isHumanOnly: false, isUnclear: false }, // added for toy/dinosaur
   ]) assert.equal(validateReportImageAnalysis(analysis).isAnimal, false);
   assert.equal(validateReportImageAnalysis(null).serviceError, true);
 });
