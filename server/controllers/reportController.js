@@ -29,7 +29,7 @@ exports.createReport = async (req, res) => {
     if (!isValidCoordinates(coordinates)) {
       return res.status(400).json({ message: 'Location must use valid longitude and latitude coordinates' });
     }
-    
+
     if (!req.file) {
       return res.status(400).json({ message: 'An image of the animal is required' });
     }
@@ -46,7 +46,7 @@ exports.createReport = async (req, res) => {
 
     if (!validation.isAnimal) {
       await cleanupRejectedImage(req.file, cloudinary.uploader);
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: validation.reason || 'Please upload a clearer photo where the animal is visible.',
         code: 'AI_ANIMAL_NOT_DETECTED',
       });
@@ -243,6 +243,7 @@ exports.getReports = async (req, res) => {
       _id: r._id,
       reporter_id: r.reporter_id,
       image_url: r.image_url,
+      resolution_image_url: r.resolution_image_url,
       description: r.description,
       address: r.address,
       issue_type: r.issue_type,
@@ -296,7 +297,7 @@ exports.respondToReport = async (req, res) => {
     if (!hasPrimary) {
       report.primary_responder = userId;
       report.status = 'in_progress';
-      
+
       // Award points
       await awardHearts({ userId: userId, actionType: 'rescue_accepted', points: 3, reportId: report._id });
       if (report.reporter_id) {
@@ -311,16 +312,16 @@ exports.respondToReport = async (req, res) => {
 
     report.last_activity_at = new Date();
     report.history.push({ status: report.status, updated_by: userId, updated_at: new Date() });
-    
+
     report.timeline.push({
       event_type: 'accepted',
       description: 'A responder has accepted this rescue request.',
       user_id: userId,
       created_at: new Date()
     });
-    
+
     await report.save();
-    
+
     // Populate user info before returning to match getReports format
     const populatedReport = await Report.findById(report._id)
       .populate('primary_responder', 'name')
@@ -350,8 +351,8 @@ exports.cancelResponse = async (req, res) => {
     }
 
     // Find latest accepted event by this user
-    const userEvents = report.timeline.filter(e => 
-      e.event_type === 'accepted' && 
+    const userEvents = report.timeline.filter(e =>
+      e.event_type === 'accepted' &&
       e.user_id && e.user_id.toString() === userId
     ).sort((a, b) => b.created_at - a.created_at);
 
@@ -361,7 +362,7 @@ exports.cancelResponse = async (req, res) => {
 
     const lastAcceptedEvent = userEvents[0];
     const fiveMinutesInMs = 5 * 60 * 1000;
-    
+
     if (Date.now() - new Date(lastAcceptedEvent.created_at).getTime() > fiveMinutesInMs) {
       return res.status(400).json({ message: 'You can only cancel your response within 5 minutes of accepting.' });
     }
@@ -443,10 +444,10 @@ exports.addReportUpdate = async (req, res) => {
     });
 
     await report.save();
-    
+
     // Award 5 hearts for providing a proof/update
     await awardHearts({ userId: req.user._id, actionType: 'proof_uploaded', points: 5, reportId: report._id });
-    
+
     res.json(report);
   } catch (error) {
     res.status(500).json({ message: 'Failed to add update' });
@@ -489,7 +490,7 @@ exports.addCommunityFlag = async (req, res) => {
       user_id: req.user._id,
       created_at: new Date()
     });
-    
+
     report.last_activity_at = new Date();
     await report.save();
     res.json(report);
@@ -526,7 +527,7 @@ exports.updateReport = async (req, res) => {
       report.status = status;
       report.history.push({ status, updated_by: req.user._id, updated_at: new Date() });
     }
-    
+
     await report.save();
     res.json(report);
   } catch (error) {
@@ -583,21 +584,21 @@ exports.resolveReport = async (req, res) => {
     report.resolution_image_url = req.file.path;
     report.resolved_by_name = resolved_by_name || req.user.name || 'Community Hero';
     report.resolved_by_role = resolved_by_role || 'Community Member';
-    
+
     // Add to timeline
-    report.history.push({ 
-      status: 'safe', 
+    report.history.push({
+      status: 'safe',
       updated_by: req.user._id,
-      updated_at: new Date() 
+      updated_at: new Date()
     });
-    
+
     report.timeline.push({
       event_type: 'safe',
       description: 'Animal marked as safe and rescued!',
       user_id: req.user._id,
       created_at: new Date()
     });
-    
+
     report.last_activity_at = new Date();
 
     await report.save();
@@ -633,7 +634,7 @@ exports.getPublicStats = async (req, res) => {
   try {
     const dogsRescued = await Report.countDocuments({ status: 'safe', is_deleted: false });
     const activeCases = await Report.countDocuments({ status: { $ne: 'safe' }, is_deleted: false });
-    const volunteers = await User.countDocuments({}); 
+    const volunteers = await User.countDocuments({});
 
     res.json({
       dogsRescued: dogsRescued || 2, // Default fallback if 0
