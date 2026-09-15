@@ -121,25 +121,61 @@ export default function RescueCard({ report, onUpdate, user }) {
   return (
     <article className="card overflow-hidden relative">
 
-      <div className="relative h-48 w-full bg-neutral">
-        <img 
-          src={getSafeImageUrl(report.image_url, undefined, 800)}
-          alt={`Rescue: ${report.issue_type.replace('_', ' ')}`}
-          className="w-full h-full object-cover"
-          crossOrigin="anonymous"
-          loading="lazy"
-        />
-        <div className="absolute top-4 left-4 flex flex-col gap-2">
-          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm ${SEVERITY_COLORS[report.priority] || SEVERITY_COLORS.medium}`}>
-            {report.priority}
-          </span>
+      {report.status === 'safe' && report.resolution_image_url ? (
+        <div className="relative h-48 w-full bg-neutral flex gap-0.5 overflow-hidden">
+          <div className="relative w-1/2 h-full">
+            <img
+              src={getSafeImageUrl(report.image_url, undefined, 800)}
+              alt={`Emergency: ${report.issue_type.replace('_', ' ')}`}
+              className="w-full h-full object-cover"
+              crossOrigin="anonymous"
+              loading="lazy"
+            />
+          </div>
+          <div className="relative w-1/2 h-full">
+            <img
+              src={getSafeImageUrl(report.resolution_image_url, undefined, 800)}
+              alt="Rescue proof"
+              className="w-full h-full object-cover border-l-2 border-success"
+              crossOrigin="anonymous"
+              loading="lazy"
+            />
+            <div className="absolute bottom-2 right-2 bg-success text-white text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full">
+              Rescued
+            </div>
+          </div>
+          <div className="absolute top-4 left-4 flex flex-col gap-2">
+            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm ${SEVERITY_COLORS[report.priority] || SEVERITY_COLORS.medium}`}>
+              {report.priority}
+            </span>
+          </div>
+          <div className="absolute bottom-4 left-4 flex gap-2">
+            <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm bg-white ${STATUS_CONFIG[report.status]?.color || STATUS_CONFIG.open.color}`}>
+              <StatusIcon size={14} /> {STATUS_CONFIG[report.status]?.label}
+            </span>
+          </div>
         </div>
-        <div className="absolute bottom-4 left-4 flex gap-2">
-           <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm bg-white ${STATUS_CONFIG[report.status]?.color || STATUS_CONFIG.open.color}`}>
-            <StatusIcon size={14} /> {STATUS_CONFIG[report.status]?.label}
-          </span>
+      ) : (
+        <div className="relative h-48 w-full bg-neutral">
+          <img 
+            src={getSafeImageUrl(report.image_url, undefined, 800)}
+            alt={`Rescue: ${report.issue_type.replace('_', ' ')}`}
+            className="w-full h-full object-cover"
+            crossOrigin="anonymous"
+            loading="lazy"
+          />
+          <div className="absolute top-4 left-4 flex flex-col gap-2">
+            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm ${SEVERITY_COLORS[report.priority] || SEVERITY_COLORS.medium}`}>
+              {report.priority}
+            </span>
+          </div>
+          <div className="absolute bottom-4 left-4 flex gap-2">
+             <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm bg-white ${STATUS_CONFIG[report.status]?.color || STATUS_CONFIG.open.color}`}>
+              <StatusIcon size={14} /> {STATUS_CONFIG[report.status]?.label}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="p-4 sm:p-5 flex flex-col h-[calc(100%-12rem)]">
         <h3 className="font-bold text-base sm:text-lg text-text-dark capitalize mb-1 truncate">{report.issue_type.replace('_', ' ')}</h3>

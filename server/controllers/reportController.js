@@ -190,6 +190,7 @@ exports.getReports = async (req, res) => {
         _id: 1,
         reporter_id: 1,
         image_url: 1,
+        resolution_image_url: 1,
         description: 1,
         location: 1,
         address: 1,

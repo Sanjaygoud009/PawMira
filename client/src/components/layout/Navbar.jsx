@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, AlertTriangle, Bell, CheckCircle } from 'lucide-react';
+import { Menu, X, AlertTriangle, Bell, CheckCircle, MessageCircle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -71,7 +71,6 @@ export default function Navbar() {
     { to: '/', label: 'Home' },
     { to: '/feed', label: 'Live Feed', highlight: true },
     { to: '/gallery', label: 'Rescued' },
-    { to: '/services', label: 'Services' },
     { to: '/lost-found', label: 'Lost & Found' },
     { to: '/heroes', label: 'Heroes' },
     { to: '/contact', label: 'Contact' },
@@ -331,6 +330,17 @@ export default function Navbar() {
                   </div>
                 </Link>
               ))}
+
+              {/* WhatsApp Report in mobile menu */}
+              <button
+                onClick={() => { setIsOpen(false); toast('WhatsApp reporting is coming soon!', { icon: '🚧' }); }}
+                className="block w-full text-left px-4 py-3 rounded-xl text-sm font-medium text-[#25D366] hover:bg-white/5 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <MessageCircle size={16} />
+                  WhatsApp Report
+                </div>
+              </button>
 
               <div className="pt-3 mt-2 border-t border-white/10 space-y-2">
                 {user ? (

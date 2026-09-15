@@ -64,7 +64,7 @@ function Hero() {
         </div>
         <div>
           <p className="text-xs sm:text-sm font-semibold text-white tracking-wide">Rescued!</p>
-          <p className="text-[9px] sm:text-[10px] font-medium text-white/50 uppercase tracking-widest mt-0.5">2 mins ago</p>
+          <p className="text-[9px] sm:text-[10px] font-medium text-white/50 uppercase tracking-widest mt-0.5">A moment ago</p>
         </div>
       </motion.div>
 
@@ -78,7 +78,7 @@ function Hero() {
         </div>
         <div>
           <p className="text-sm font-semibold text-white tracking-wide">New Emergency</p>
-          <p className="text-[10px] font-medium text-white/50 uppercase tracking-widest mt-0.5">Nearby: 0.5 km</p>
+          <p className="text-[10px] font-medium text-white/50 uppercase tracking-widest mt-0.5">Nearby</p>
         </div>
       </motion.div>
 
@@ -136,9 +136,20 @@ function Hero() {
               <AlertTriangle className="w-[18px] h-[18px] transition-transform group-hover:scale-110" />
               Report Emergency
             </Link>
+            {/* Mobile: Live Feed button | Desktop: WhatsApp Report button */}
+            <Link
+              to="/feed"
+              className="sm:hidden group flex items-center justify-center gap-2.5 px-6 py-3.5 bg-white/5 backdrop-blur-md text-white border border-white/10 font-semibold rounded-xl text-[15px] hover:bg-white/10 transition-all duration-300 hover:-translate-y-0.5 w-full"
+            >
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+              </span>
+              Live Feed
+            </Link>
             <button
               onClick={() => toast('WhatsApp reporting is coming soon!', { icon: '🚧' })}
-              className="group flex items-center justify-center gap-2.5 px-6 py-3.5 bg-white/5 backdrop-blur-md text-white border border-white/10 font-semibold rounded-xl text-[15px] sm:text-base hover:bg-white/10 transition-all duration-300 hover:-translate-y-0.5 w-full sm:w-auto"
+              className="hidden sm:flex group items-center justify-center gap-2.5 px-6 py-3.5 bg-white/5 backdrop-blur-md text-white border border-white/10 font-semibold rounded-xl text-base hover:bg-white/10 transition-all duration-300 hover:-translate-y-0.5 sm:w-auto"
             >
               <MessageCircle className="w-[18px] h-[18px] text-[#25D366] transition-transform group-hover:scale-110" />
               WhatsApp Report
