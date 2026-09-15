@@ -637,9 +637,9 @@ exports.getPublicStats = async (req, res) => {
     const volunteers = await User.countDocuments({});
 
     res.json({
-      dogsRescued: dogsRescued || 2, // Default fallback if 0
-      volunteers: volunteers || 2,
-      activeCases: activeCases || 0,
+      dogsRescued: dogsRescued, 
+      volunteers: volunteers,
+      activeCases: activeCases,
     });
   } catch (error) {
     console.error('Stats error:', error);
