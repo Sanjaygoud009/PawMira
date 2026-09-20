@@ -824,7 +824,7 @@ exports.respondToRoleTransfer = async (req, res) => {
 
     const toUserName = pendingTransfer.direction === 'primary_to_backup'
       ? populatedReport.primary_responder?.name
-      : populatedReport.backup_responders.find(b => b._id.toString() === userId)?.name;
+      : populatedReport.primary_responder?.name;
 
     const sysMessage = await RescueMessage.create({
       report_id: report._id,
