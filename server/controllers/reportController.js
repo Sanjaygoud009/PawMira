@@ -386,8 +386,8 @@ exports.cancelResponse = async (req, res) => {
     }
 
     if (report.pending_role_transfer &&
-        (report.pending_role_transfer.from_user?.toString() === userId ||
-         report.pending_role_transfer.to_user?.toString() === userId)) {
+      (report.pending_role_transfer.from_user?.toString() === userId ||
+        report.pending_role_transfer.to_user?.toString() === userId)) {
       report.pending_role_transfer = undefined;
     }
 
@@ -820,7 +820,7 @@ exports.respondToRoleTransfer = async (req, res) => {
     // Create system message in chat
     const fromUserName = pendingTransfer.direction === 'primary_to_backup'
       ? populatedReport.backup_responders.find(b => b._id.toString() === fromUserId)?.name
-      : populatedReport.primary_responder?.name;
+      : populatedReport.backup_responders.find(b => b._id.toString() === userId)?.name;
 
     const toUserName = pendingTransfer.direction === 'primary_to_backup'
       ? populatedReport.primary_responder?.name

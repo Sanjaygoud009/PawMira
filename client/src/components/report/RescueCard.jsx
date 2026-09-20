@@ -208,7 +208,7 @@ export default function RescueCard({ report, onUpdate, user }) {
             </span>
           </div>
           <div className="absolute bottom-4 left-4 flex gap-2">
-             <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm bg-white ${STATUS_CONFIG[report.status]?.color || STATUS_CONFIG.open.color}`}>
+            <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm bg-white ${STATUS_CONFIG[report.status]?.color || STATUS_CONFIG.open.color}`}>
               <StatusIcon size={14} /> {STATUS_CONFIG[report.status]?.label}
             </span>
           </div>
@@ -349,14 +349,14 @@ export default function RescueCard({ report, onUpdate, user }) {
               {canTransferPrimary && (
                 <div className="flex gap-2 flex-1">
                   {report.backup_responders.map((b) => (
-                     <button
-                       key={b._id}
-                       onClick={() => handleRequestTransfer(b._id)}
-                       disabled={loading}
-                       className="flex-1 border border-primary/20 text-primary py-1.5 rounded-xl text-[11px] font-bold hover:bg-primary/10 transition-colors shadow-sm"
-                     >
-                       Transfer to {b.name.split(' ')[0]}
-                     </button>
+                    <button
+                      key={b._id}
+                      onClick={() => handleRequestTransfer(b._id)}
+                      disabled={loading}
+                      className="flex-1 border border-primary/20 text-primary py-1.5 rounded-xl text-[11px] font-bold hover:bg-primary/10 transition-colors shadow-sm"
+                    >
+                      Transfer to {(b.name || 'Backup').split(' ')[0]}
+                    </button>
                   ))}
                 </div>
               )}
