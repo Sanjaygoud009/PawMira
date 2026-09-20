@@ -12,7 +12,9 @@ const {
   addCommunityFlag,
   resolveReport,
   getPublicStats,
-  cancelResponse
+  cancelResponse,
+  requestRoleTransfer,
+  respondToRoleTransfer
 } = require('../controllers/reportController');
 const { protect, authorize, optionalAuth } = require('../middleware/auth');
 const upload = require('../middleware/upload');
@@ -36,6 +38,8 @@ router.post('/:id/resolve', protect, upload.single('image'), resolveReport);
 // Protected — responder actions
 router.post('/:id/respond', protect, respondToReport);
 router.post('/:id/cancel-response', protect, cancelResponse);
+router.post('/:id/transfer-request', protect, requestRoleTransfer);
+router.post('/:id/transfer-respond', protect, respondToRoleTransfer);
 router.post('/:id/update', protect, upload.single('image'), addReportUpdate);
 router.post('/:id/monitor', protect, toggleMonitor);
 router.post('/:id/flag', protect, addCommunityFlag);

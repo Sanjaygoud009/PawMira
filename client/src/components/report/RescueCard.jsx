@@ -65,6 +65,33 @@ export default function RescueCard({ report, onUpdate, user }) {
     }
   };
 
+  const handleRequestTransfer = async (targetUserId) => {
+    if (!window.confirm("Are you sure you want to request a role transfer?")) return;
+    try {
+      setLoading(true);
+      const res = await api.post(`/reports/${report._id}/transfer-request`, { targetUserId });
+      toast.success("Transfer requested!");
+      onUpdate(res.data);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to request transfer');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRespondToTransfer = async (action) => {
+    try {
+      setLoading(true);
+      const res = await api.post(`/reports/${report._id}/transfer-respond`, { action });
+      toast.success(action === 'accept' ? 'Role transferred successfully!' : 'Transfer declined');
+      onUpdate(res.data);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to respond to transfer');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleShare = async () => {
     const shareUrl = `${window.location.origin}/feed?highlight=${report._id}`;
     const shareData = {
@@ -100,18 +127,29 @@ export default function RescueCard({ report, onUpdate, user }) {
   const maxResponders = 3;
   const remainingSpots = Math.max(maxResponders - totalResponders, 0);
 
-  const isPrimary = user && report.primary_responder?._id === user._id;
-  const isBackup = user && report.backup_responders?.some(b => (b._id || b) === user._id);
-  const isMonitoring = user && report.monitors?.includes(user._id);
-  const canChat = user && (isPrimary || isBackup || isMonitoring || report.reporter_id === user._id);
+  // Helper: safely compare a possibly-populated ({_id,name}) or raw ObjectId/string
+  const strId = (v) => (v?._id !== undefined ? v._id : v)?.toString?.() ?? String(v ?? '');
 
-  const userAcceptedEvents = report.timeline?.filter(e => 
-    e.event_type === 'accepted' && (e.user_id === user?._id || e.user_id?._id === user?._id)
+  const isPrimary = Boolean(user && report.primary_responder && strId(report.primary_responder) === user._id);
+  const isBackup = Boolean(user && report.backup_responders?.some(b => strId(b) === user._id));
+  const isMonitoring = Boolean(user && report.monitors?.some(m => strId(m) === user._id));
+  const canChat = Boolean(user && (isPrimary || isBackup || isMonitoring || strId(report.reporter_id) === user._id));
+
+  const userAcceptedEvents = report.timeline?.filter(e =>
+    e.event_type === 'accepted' && (strId(e.user_id) === user?._id)
   ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) || [];
-  
+
   const lastAcceptedAt = userAcceptedEvents.length > 0 ? new Date(userAcceptedEvents[0].created_at) : null;
   const fiveMinutesInMs = 5 * 60 * 1000;
   const canCancel = lastAcceptedAt && (Date.now() - lastAcceptedAt.getTime() <= fiveMinutesInMs) && report.status !== 'safe';
+
+  const pendingTransfer = report.pending_role_transfer;
+  // pending_role_transfer stores raw string IDs (not populated objects)
+  const hasPendingTransferToMe = Boolean(pendingTransfer?.to_user && pendingTransfer.to_user.toString() === user?._id);
+  const hasPendingTransferFromMe = Boolean(pendingTransfer?.from_user && pendingTransfer.from_user.toString() === user?._id);
+
+  const canTransferPrimary = isPrimary && backupCount > 0 && !pendingTransfer && report.status !== 'safe';
+  const canRequestPrimary = isBackup && !pendingTransfer && report.status !== 'safe';
 
   const timeAgo = formatDistanceToNow(new Date(report.created_at), { addSuffix: true });
   const verifiedAgo = formatDistanceToNow(new Date(report.last_activity_at || report.created_at), { addSuffix: true });
@@ -157,7 +195,7 @@ export default function RescueCard({ report, onUpdate, user }) {
         </div>
       ) : (
         <div className="relative h-48 w-full bg-neutral">
-          <img 
+          <img
             src={getSafeImageUrl(report.image_url, undefined, 800)}
             alt={`Rescue: ${report.issue_type.replace('_', ' ')}`}
             className="w-full h-full object-cover"
@@ -185,7 +223,7 @@ export default function RescueCard({ report, onUpdate, user }) {
           <div className="flex items-center gap-2 text-xs text-text-light">
             <MapPin size={14} className="text-primary shrink-0" />
             {report.latitude && report.longitude ? (
-              <a 
+              <a
                 href={`https://www.google.com/maps/search/?api=1&query=${report.latitude},${report.longitude}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -226,14 +264,31 @@ export default function RescueCard({ report, onUpdate, user }) {
                 </span>
                 {report.primary_responder && (
                   <span className="inline-flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full text-[10px] font-semibold">
-                    <Crown size={11} /> {report.primary_responder.name} (Lead)
+                    <Crown size={11} /> {report.primary_responder.name} (Primary)
                   </span>
                 )}
                 {report.backup_responders && report.backup_responders.map((b, idx) => (
                   <span key={b._id || idx} className="inline-flex items-center gap-1 bg-neutral text-text-dark border border-neutral px-2 py-0.5 rounded-full text-[10px] font-medium">
-                    <UserRoundCheck size={11} /> {b.name || 'Backup'}
+                    <UserRoundCheck size={11} /> {b.name || 'Backup'} (Backup)
                   </span>
                 ))}
+              </div>
+            )}
+
+            {hasPendingTransferFromMe && (
+              <div className="mt-2 text-xs text-warning font-semibold bg-warning/10 p-2 rounded flex items-center justify-between">
+                <span>Transfer request pending...</span>
+              </div>
+            )}
+            {hasPendingTransferToMe && (
+              <div className="mt-2 text-xs bg-primary/10 border border-primary/20 p-2 rounded">
+                <p className="font-semibold text-primary mb-1">
+                  {pendingTransfer.direction === 'primary_to_backup' ? 'You have been requested to become the Primary Responder!' : 'A Backup has requested to take the Primary Responder role!'}
+                </p>
+                <div className="flex gap-2 mt-2">
+                  <button onClick={() => handleRespondToTransfer('accept')} disabled={loading} className="px-3 py-1 bg-primary text-white rounded text-xs font-bold hover:bg-primary-dark shadow-sm">Accept</button>
+                  <button onClick={() => handleRespondToTransfer('decline')} disabled={loading} className="px-3 py-1 bg-error/10 text-error rounded text-xs font-bold hover:bg-error/20">Decline</button>
+                </div>
               </div>
             )}
           </div>
@@ -271,54 +326,81 @@ export default function RescueCard({ report, onUpdate, user }) {
 
         <div className="flex items-center gap-2 mt-auto pt-4 border-t border-neutral">
           {isPrimary && report.status !== 'safe' ? (
-            <div className="flex gap-2 flex-1">
-              <button 
-                onClick={() => window.dispatchEvent(new CustomEvent('openResolveModal', { detail: report._id }))}
-                className="flex-1 bg-success text-white py-2 rounded-xl text-sm font-bold hover:bg-green-600 transition-colors shadow-sm flex items-center justify-center gap-2"
-                title="Mark this rescue as safe and resolved."
-              >
-                <CheckCircle size={16} /> Mark as Safe
-              </button>
-              {canCancel && (
-                <button 
-                  onClick={handleCancelResponse}
-                  disabled={loading}
-                  className="bg-error/10 text-error hover:bg-error/20 px-3 sm:px-4 py-2 rounded-xl text-sm font-bold transition-colors shadow-sm disabled:opacity-50 shrink-0"
-                  title="Cancel Response (within 5 minutes)"
+            <div className="flex flex-col gap-2 flex-1">
+              <div className="flex gap-2 flex-1">
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('openResolveModal', { detail: report._id }))}
+                  className="flex-1 bg-success text-white py-2 rounded-xl text-sm font-bold hover:bg-green-600 transition-colors shadow-sm flex items-center justify-center gap-2"
+                  title="Mark this rescue as safe and resolved."
                 >
-                  {loading ? '...' : 'Cancel'}
+                  <CheckCircle size={16} /> Mark as Safe
                 </button>
+                {canCancel && (
+                  <button
+                    onClick={handleCancelResponse}
+                    disabled={loading}
+                    className="bg-error/10 text-error hover:bg-error/20 px-3 sm:px-4 py-2 rounded-xl text-sm font-bold transition-colors shadow-sm disabled:opacity-50 shrink-0"
+                    title="Cancel Response (within 5 minutes)"
+                  >
+                    {loading ? '...' : 'Cancel'}
+                  </button>
+                )}
+              </div>
+              {canTransferPrimary && (
+                <div className="flex gap-2 flex-1">
+                  {report.backup_responders.map((b) => (
+                     <button
+                       key={b._id}
+                       onClick={() => handleRequestTransfer(b._id)}
+                       disabled={loading}
+                       className="flex-1 border border-primary/20 text-primary py-1.5 rounded-xl text-[11px] font-bold hover:bg-primary/10 transition-colors shadow-sm"
+                     >
+                       Transfer to {b.name.split(' ')[0]}
+                     </button>
+                  ))}
+                </div>
               )}
             </div>
           ) : report.status === 'safe' ? (
-            <button 
+            <button
               disabled={true}
               className="flex-1 bg-green-50 text-success border border-success/30 py-2 rounded-xl text-sm font-bold cursor-default shadow-sm flex items-center justify-center gap-2"
             >
               <CheckCircle size={16} /> Rescue Resolved
             </button>
           ) : isBackup ? (
-            <div className="flex gap-2 flex-1">
-              <button 
-                disabled={true}
-                className="flex-1 bg-[#e8f5e9] text-success border border-success/30 py-2 rounded-xl text-sm font-medium cursor-default shadow-sm font-semibold truncate"
-                title="You have joined this rescue as a backup responder!"
-              >
-                Joined as Backup
-              </button>
-              {canCancel && (
-                <button 
-                  onClick={handleCancelResponse}
-                  disabled={loading}
-                  className="bg-error/10 text-error hover:bg-error/20 px-3 sm:px-4 py-2 rounded-xl text-sm font-bold transition-colors shadow-sm disabled:opacity-50 shrink-0"
-                  title="Cancel Response (within 5 minutes)"
+            <div className="flex flex-col gap-2 flex-1">
+              <div className="flex gap-2 flex-1">
+                <button
+                  disabled={true}
+                  className="flex-1 bg-[#e8f5e9] text-success border border-success/30 py-2 rounded-xl text-sm font-medium cursor-default shadow-sm font-semibold truncate"
+                  title="You have joined this rescue as a backup responder!"
                 >
-                  {loading ? '...' : 'Cancel'}
+                  Joined as Backup
+                </button>
+                {canCancel && (
+                  <button
+                    onClick={handleCancelResponse}
+                    disabled={loading}
+                    className="bg-error/10 text-error hover:bg-error/20 px-3 sm:px-4 py-2 rounded-xl text-sm font-bold transition-colors shadow-sm disabled:opacity-50 shrink-0"
+                    title="Cancel Response (within 5 minutes)"
+                  >
+                    {loading ? '...' : 'Cancel'}
+                  </button>
+                )}
+              </div>
+              {canRequestPrimary && (
+                <button
+                  onClick={() => handleRequestTransfer(report.primary_responder._id)}
+                  disabled={loading}
+                  className="w-full border border-primary/20 text-primary py-1.5 rounded-xl text-[11px] font-bold hover:bg-primary/10 transition-colors shadow-sm"
+                >
+                  Request Primary Role
                 </button>
               )}
             </div>
           ) : totalResponders >= maxResponders ? (
-            <button 
+            <button
               disabled={true}
               className="flex-1 bg-neutral-dark text-text-light py-2 rounded-xl text-sm font-medium cursor-not-allowed opacity-60"
               title="All responder slots (3/3) are currently filled."
@@ -326,7 +408,7 @@ export default function RescueCard({ report, onUpdate, user }) {
               Responders Full
             </button>
           ) : report.status === 'open' || report.status === 'inactive' ? (
-            <button 
+            <button
               onClick={handleRespond}
               disabled={loading}
               className="flex-1 bg-primary text-white py-2 rounded-xl text-sm font-medium hover:bg-primary-hover transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
@@ -334,7 +416,7 @@ export default function RescueCard({ report, onUpdate, user }) {
               {loading ? 'Processing...' : "I'm Responding"}
             </button>
           ) : (
-            <button 
+            <button
               onClick={handleRespond}
               disabled={loading || report.status === 'safe'}
               className="flex-1 bg-neutral text-text-dark py-2 rounded-xl text-sm font-medium hover:bg-neutral-dark border border-neutral transition-colors shadow-sm disabled:opacity-50"
@@ -344,7 +426,7 @@ export default function RescueCard({ report, onUpdate, user }) {
           )}
 
           {canChat && report.status !== 'safe' && (
-            <button 
+            <button
               onClick={() => setIsChatOpen(true)}
               className="p-2 rounded-xl border border-primary/20 text-primary hover:bg-primary/10 transition-colors shadow-sm"
               title="Open Rescue Chat"
@@ -355,7 +437,7 @@ export default function RescueCard({ report, onUpdate, user }) {
           )}
 
           {report.status !== 'safe' && (
-            <button 
+            <button
               onClick={handleMonitor}
               className={`p-2 rounded-xl border transition-colors ${isMonitoring ? 'bg-primary/10 border-primary/20 text-primary' : 'border-neutral text-text-light hover:bg-neutral'}`}
               title="Monitor this rescue"
@@ -365,7 +447,7 @@ export default function RescueCard({ report, onUpdate, user }) {
             </button>
           )}
 
-          <button 
+          <button
             onClick={handleShare}
             className="p-2 rounded-xl border border-neutral text-text-light hover:bg-neutral transition-colors"
             title="Generate Share Card"
@@ -375,12 +457,13 @@ export default function RescueCard({ report, onUpdate, user }) {
           </button>
         </div>
       </div>
-      
+
       {isChatOpen && (
-        <RescueChat 
-          reportId={report._id} 
-          user={user} 
-          onClose={() => setIsChatOpen(false)} 
+        <RescueChat
+          reportId={report._id}
+          report={report}
+          user={user}
+          onClose={() => setIsChatOpen(false)}
         />
       )}
     </article>

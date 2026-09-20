@@ -212,6 +212,12 @@ const reportSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  pending_role_transfer: {
+    from_user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    to_user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    direction: { type: String, enum: ['primary_to_backup', 'backup_to_primary'] },
+    requested_at: { type: Date }
+  }
 });
 
 // Indexes

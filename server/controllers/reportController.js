@@ -1,11 +1,13 @@
 const Report = require('../models/Report');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
+const RescueMessage = require('../models/RescueMessage');
 const mongoose = require('mongoose');
 const { awardHearts } = require('../utils/gamification');
 const { cleanupRejectedImage, validateAnimalImage, validateRescueProofImage } = require('../utils/imageValidator');
 const cloudinary = require('../config/cloudinary');
 const { parseReportsQuery } = require('../utils/reportQuery');
-const { canManageReport } = require('../utils/reportAuthorization');
+const { canManageReport, canResolveReport } = require('../utils/reportAuthorization');
 const { isValidCoordinates } = require('../utils/coordinates');
 const { emitReportResponderUpdate } = require('../utils/reportRealtime');
 
@@ -383,6 +385,12 @@ exports.cancelResponse = async (req, res) => {
       report.backup_responders = report.backup_responders.filter(id => id.toString() !== userId);
     }
 
+    if (report.pending_role_transfer &&
+        (report.pending_role_transfer.from_user?.toString() === userId ||
+         report.pending_role_transfer.to_user?.toString() === userId)) {
+      report.pending_role_transfer = undefined;
+    }
+
     report.timeline.push({
       event_type: 'cancelled',
       description: 'A responder cancelled their response.',
@@ -556,7 +564,7 @@ exports.resolveReport = async (req, res) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
-    if (!canManageReport(report, req.user)) {
+    if (!canResolveReport(report, req.user)) {
       return res.status(403).json({ message: 'Not authorized to resolve this report' });
     }
 
@@ -628,6 +636,222 @@ exports.deleteReport = async (req, res) => {
   res.json({ message: 'Deleted' });
 };
 
+exports.requestRoleTransfer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { targetUserId } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(targetUserId)) {
+      return res.status(400).json({ message: 'Invalid ID format' });
+    }
+
+    const report = await Report.findById(id);
+    if (!report || report.is_deleted) return res.status(404).json({ message: 'Report not found' });
+
+    if (report.status === 'safe' || report.status === 'inactive') {
+      return res.status(400).json({ message: 'Role transfer not allowed on resolved or inactive rescues' });
+    }
+
+    const userId = req.user._id.toString();
+    if (userId === targetUserId) {
+      return res.status(400).json({ message: 'Cannot transfer role to yourself' });
+    }
+
+    const isPrimary = report.primary_responder?.toString() === userId;
+    const isBackup = report.backup_responders?.some(uid => uid.toString() === userId);
+
+    const isTargetPrimary = report.primary_responder?.toString() === targetUserId;
+    const isTargetBackup = report.backup_responders?.some(uid => uid.toString() === targetUserId);
+
+    if (!isPrimary && !isBackup) {
+      return res.status(403).json({ message: 'You are not a responder on this rescue' });
+    }
+    if (!isTargetPrimary && !isTargetBackup) {
+      return res.status(400).json({ message: 'Target user is not a responder on this rescue' });
+    }
+
+    let direction;
+    if (isPrimary && isTargetBackup) {
+      direction = 'primary_to_backup';
+    } else if (isBackup && isTargetPrimary) {
+      direction = 'backup_to_primary';
+    } else {
+      return res.status(400).json({ message: 'Invalid transfer direction' });
+    }
+
+    if (report.pending_role_transfer && report.pending_role_transfer.from_user) {
+      return res.status(409).json({ message: 'A role transfer request is already pending for this rescue' });
+    }
+
+    report.pending_role_transfer = {
+      from_user: req.user._id,
+      to_user: targetUserId,
+      direction,
+      requested_at: new Date()
+    };
+
+    await report.save();
+
+    // Create in-app notification
+    await Notification.create({
+      user_id: targetUserId,
+      type: 'system',
+      title: 'Role Transfer Request',
+      message: direction === 'primary_to_backup'
+        ? 'You have been requested to take the Primary Responder role for a rescue.'
+        : 'A Backup responder has requested to take the Primary Responder role for your rescue.',
+      reference_id: report._id,
+      reference_model: 'Report'
+    });
+
+    const populatedReport = await Report.findById(report._id)
+      .populate('primary_responder', 'name')
+      .populate('backup_responders', 'name')
+      .lean();
+
+    emitReportResponderUpdate(req.app.get('io'), populatedReport);
+    res.json(populatedReport);
+  } catch (error) {
+    console.error(`[REPORT_ERROR] requestRoleTransfer: ${error.message}`);
+    res.status(500).json({ message: 'Failed to request role transfer' });
+  }
+};
+
+exports.respondToRoleTransfer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body; // 'accept' or 'decline'
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid ID format' });
+    }
+    if (action !== 'accept' && action !== 'decline') {
+      return res.status(400).json({ message: 'Invalid action' });
+    }
+
+    const report = await Report.findById(id);
+    if (!report || report.is_deleted) return res.status(404).json({ message: 'Report not found' });
+
+    if (report.status === 'safe' || report.status === 'inactive') {
+      return res.status(400).json({ message: 'Role transfer not allowed on resolved or inactive rescues' });
+    }
+
+    const userId = req.user._id.toString();
+    const pendingTransfer = report.pending_role_transfer;
+
+    if (!pendingTransfer || !pendingTransfer.to_user || pendingTransfer.to_user.toString() !== userId) {
+      return res.status(409).json({ message: 'No pending role transfer request found for you' });
+    }
+
+    if (action === 'decline') {
+      report.pending_role_transfer = undefined;
+      await report.save();
+
+      // Notify the requester that it was declined
+      await Notification.create({
+        user_id: pendingTransfer.from_user,
+        type: 'system',
+        title: 'Role Transfer Declined',
+        message: 'Your request for a role transfer was declined.',
+        reference_id: report._id,
+        reference_model: 'Report'
+      });
+
+      const populatedReport = await Report.findById(report._id)
+        .populate('primary_responder', 'name')
+        .populate('backup_responders', 'name')
+        .lean();
+
+      emitReportResponderUpdate(req.app.get('io'), populatedReport);
+      return res.json(populatedReport);
+    }
+
+    // Action is accept. Validate current state carefully (stale prevention)
+    const fromUserId = pendingTransfer.from_user.toString();
+    const currentPrimary = report.primary_responder?.toString();
+    const currentBackups = report.backup_responders?.map(uid => uid.toString()) || [];
+
+    if (pendingTransfer.direction === 'primary_to_backup') {
+      if (currentPrimary !== fromUserId || !currentBackups.includes(userId)) {
+        report.pending_role_transfer = undefined;
+        await report.save();
+        return res.status(409).json({ message: 'Transfer request is stale or invalid (roles have changed)' });
+      }
+    } else if (pendingTransfer.direction === 'backup_to_primary') {
+      if (!currentBackups.includes(fromUserId) || currentPrimary !== userId) {
+        report.pending_role_transfer = undefined;
+        await report.save();
+        return res.status(409).json({ message: 'Transfer request is stale or invalid (roles have changed)' });
+      }
+    }
+
+    // Perform the role swap
+    if (pendingTransfer.direction === 'primary_to_backup') {
+      report.primary_responder = userId;
+      report.backup_responders = report.backup_responders.filter(uid => uid.toString() !== userId);
+      if (!report.backup_responders.some(uid => uid.toString() === fromUserId)) {
+        report.backup_responders.push(fromUserId);
+      }
+    } else {
+      report.primary_responder = fromUserId;
+      report.backup_responders = report.backup_responders.filter(uid => uid.toString() !== fromUserId);
+      if (!report.backup_responders.some(uid => uid.toString() === userId)) {
+        report.backup_responders.push(userId);
+      }
+    }
+
+    report.pending_role_transfer = undefined;
+
+    report.timeline.push({
+      event_type: 'general',
+      description: `Primary responder role was transferred.`,
+      user_id: req.user._id,
+      created_at: new Date()
+    });
+
+    report.last_activity_at = new Date();
+    await report.save();
+
+    const populatedReport = await Report.findById(report._id)
+      .populate('primary_responder', 'name')
+      .populate('backup_responders', 'name')
+      .lean();
+
+    // Create system message in chat
+    const fromUserName = pendingTransfer.direction === 'primary_to_backup'
+      ? populatedReport.backup_responders.find(b => b._id.toString() === fromUserId)?.name
+      : populatedReport.primary_responder?.name;
+
+    const toUserName = pendingTransfer.direction === 'primary_to_backup'
+      ? populatedReport.primary_responder?.name
+      : populatedReport.backup_responders.find(b => b._id.toString() === userId)?.name;
+
+    const sysMessage = await RescueMessage.create({
+      report_id: report._id,
+      content: `Primary responsibility was transferred from ${fromUserName || 'Responder'} to ${toUserName || 'Responder'}.`,
+      is_system: true
+    });
+
+    req.app.get('io').to(`rescue_${report._id}`).emit('receive_rescue_message', sysMessage);
+
+    // Notify the requester that it was accepted
+    await Notification.create({
+      user_id: pendingTransfer.from_user,
+      type: 'system',
+      title: 'Role Transfer Accepted',
+      message: 'Your request for a role transfer was accepted and completed.',
+      reference_id: report._id,
+      reference_model: 'Report'
+    });
+
+    emitReportResponderUpdate(req.app.get('io'), populatedReport);
+    res.json(populatedReport);
+  } catch (error) {
+    console.error(`[REPORT_ERROR] respondToRoleTransfer: ${error.message}`);
+    res.status(500).json({ message: 'Failed to respond to role transfer' });
+  }
+};
+
 // @desc    Get public stats for homepage
 // @route   GET /api/reports/stats
 exports.getPublicStats = async (req, res) => {
@@ -637,7 +861,7 @@ exports.getPublicStats = async (req, res) => {
     const volunteers = await User.countDocuments({});
 
     res.json({
-      dogsRescued: dogsRescued, 
+      dogsRescued: dogsRescued,
       volunteers: volunteers,
       activeCases: activeCases,
     });

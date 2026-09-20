@@ -8,7 +8,7 @@ import { getSafeImageUrl } from '../../utils/imageUtils';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://127.0.0.1:5000';
 
-export default function RescueChat({ reportId, user, onClose }) {
+export default function RescueChat({ reportId, report, user, onClose }) {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -165,6 +165,19 @@ export default function RescueChat({ reportId, user, onClose }) {
               </div>
             ) : (
               messages.map((msg, index) => {
+                if (msg.is_system) {
+                  return (
+                    <div key={msg._id || index} className="flex flex-col items-center my-3">
+                      <span className="text-[11px] font-medium text-text-light bg-neutral px-3 py-1 rounded-full shadow-sm text-center">
+                        {msg.content}
+                      </span>
+                      <span className="text-[9px] font-medium text-text-light mt-1">
+                        {formatTime(msg.created_at)}
+                      </span>
+                    </div>
+                  );
+                }
+
                 const isMe = msg.sender?._id === user._id;
                 
                 return (
@@ -178,7 +191,25 @@ export default function RescueChat({ reportId, user, onClose }) {
                       />
                     )}
                     <div className={`flex flex-col max-w-[75%] ${isMe ? 'items-end' : 'items-start'}`}>
-                      {!isMe && <span className="text-[10px] font-bold text-text-light ml-1 mb-0.5">{msg.sender?.name}</span>}
+                      {!isMe && (
+                        <div className="flex items-center gap-1.5 ml-1 mb-0.5">
+                          <span className="text-[10px] font-bold text-text-light">{msg.sender?.name}</span>
+                          {(() => {
+                            if (!report) return null;
+                            const sid = msg.sender?._id;
+                            if (!sid) return null;
+                            const pId = report.primary_responder?._id || report.primary_responder;
+                            const backups = report.backup_responders || [];
+                            if (sid === pId?.toString() || sid === pId) {
+                              return <span className="text-[8px] uppercase tracking-wider font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">Primary</span>;
+                            }
+                            if (backups.some(b => (b._id?.toString() || b?.toString()) === sid)) {
+                              return <span className="text-[8px] uppercase tracking-wider font-bold text-text-light bg-neutral px-1.5 py-0.5 rounded">Backup</span>;
+                            }
+                            return null;
+                          })()}
+                        </div>
+                      )}
                       <div 
                         className={`px-4 py-2.5 rounded-2xl text-sm shadow-sm ${
                           isMe 

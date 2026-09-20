@@ -14,3 +14,11 @@ exports.canAccessRescueChat = (report, user) => {
   const userId = user?._id?.toString();
   return Boolean(userId && (report.monitors || []).some((id) => isIdMatch(id, userId)));
 };
+
+exports.canResolveReport = (report, user) => {
+  if (!report || !user) return false;
+  const userId = user._id.toString();
+  if (user.role === 'admin') return true;
+  if (isIdMatch(report.primary_responder, userId)) return true;
+  return false;
+};

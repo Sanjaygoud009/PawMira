@@ -9,7 +9,11 @@ const rescueMessageSchema = new mongoose.Schema({
   sender: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: function() { return !this.is_system; }
+  },
+  is_system: {
+    type: Boolean,
+    default: false
   },
   content: {
     type: String,
