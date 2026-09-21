@@ -305,10 +305,6 @@ exports.respondToReport = async (req, res) => {
       }
       report.backup_responders.push(userId);
     }
-
-    // Award +3 hearts for joining as Primary or Backup
-    await awardHearts({ userId: userId, actionType: 'rescue_accepted', points: 3, reportId: report._id });
-
     report.last_activity_at = new Date();
     report.history.push({ status: report.status, updated_by: userId, updated_at: new Date() });
 
@@ -320,6 +316,9 @@ exports.respondToReport = async (req, res) => {
     });
 
     await report.save();
+
+    // Award +3 hearts for joining as Primary or Backup
+    await awardHearts({ userId: userId, actionType: 'rescue_accepted', points: 3, reportId: report._id });
 
     // Populate user info before returning to match getReports format
     const populatedReport = await Report.findById(report._id)

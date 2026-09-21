@@ -105,7 +105,7 @@ const awardHearts = async ({ userId, actionType, points, reportId = null, refere
     return user;
   } catch (error) {
     console.error(`[GAMIFICATION_ERROR] ${error.message}`);
-    return null;
+    throw error;
   }
 };
 
