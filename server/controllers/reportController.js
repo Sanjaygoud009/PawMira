@@ -299,18 +299,15 @@ exports.respondToReport = async (req, res) => {
     if (!hasPrimary) {
       report.primary_responder = userId;
       report.status = 'in_progress';
-
-      // Award points
-      await awardHearts({ userId: userId, actionType: 'rescue_accepted', points: 3, reportId: report._id });
-      if (report.reporter_id) {
-        await awardHearts({ userId: report.reporter_id, actionType: 'report_active', points: 2, reportId: report._id });
-      }
     } else {
       if (totalResponders >= 3) {
         return res.status(400).json({ message: 'This rescue already has the maximum of 3 responders.' });
       }
       report.backup_responders.push(userId);
     }
+
+    // Award +3 hearts for joining as Primary or Backup
+    await awardHearts({ userId: userId, actionType: 'rescue_accepted', points: 3, reportId: report._id });
 
     report.last_activity_at = new Date();
     report.history.push({ status: report.status, updated_by: userId, updated_at: new Date() });
@@ -408,6 +405,7 @@ exports.cancelResponse = async (req, res) => {
       .populate('backup_responders', 'name')
       .lean();
 
+    emitReportResponderUpdate(req.app.get('io'), populatedReport);
     res.json(populatedReport);
   } catch (error) {
     console.error(`[REPORT_ERROR] cancelResponse: ${error.message}`);
@@ -452,9 +450,6 @@ exports.addReportUpdate = async (req, res) => {
     });
 
     await report.save();
-
-    // Award 5 hearts for providing a proof/update
-    await awardHearts({ userId: req.user._id, actionType: 'proof_uploaded', points: 5, reportId: report._id });
 
     res.json(report);
   } catch (error) {
@@ -611,8 +606,12 @@ exports.resolveReport = async (req, res) => {
 
     await report.save();
 
-    if (req.user) {
-      await awardHearts({ userId: req.user._id, actionType: 'safe_marked', points: 10, reportId: report._id });
+    // Award completion hearts to all crew members
+    const crew = [];
+    if (report.primary_responder) crew.push(report.primary_responder);
+    if (report.backup_responders) report.backup_responders.forEach(b => crew.push(b));
+    for (const memberId of crew) {
+      await awardHearts({ userId: memberId, actionType: 'safe_marked', points: 10, reportId: report._id });
     }
 
     const resolvedReport = await Report.findById(report._id)

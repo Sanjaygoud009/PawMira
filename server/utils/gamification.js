@@ -50,8 +50,8 @@ const awardHearts = async ({ userId, actionType, points, reportId = null, refere
     if (!userId) return null;
 
     // Check if points already awarded for this specific action on this report
-    // (Prevents farming from the same action multiple times, like uploading multiple proofs)
-    if (reportId && actionType === 'proof_uploaded') {
+    // (Prevents farming from the same action multiple times, e.g. re-joining)
+    if (reportId) {
       const existingTx = await HeartTransaction.findOne({ 
         user_id: userId, 
         report_id: reportId, 

@@ -160,7 +160,7 @@ export default function RescueCard({ report, onUpdate, user }) {
     <article className="card overflow-hidden relative">
 
       {report.status === 'safe' && report.resolution_image_url ? (
-        <div className="relative h-48 w-full bg-neutral flex gap-0.5 overflow-hidden">
+        <div className="relative h-44 sm:h-52 w-full bg-neutral flex gap-0.5 overflow-hidden">
           <div className="relative w-1/2 h-full">
             <img
               src={getSafeImageUrl(report.image_url, undefined, 800)}
@@ -182,19 +182,19 @@ export default function RescueCard({ report, onUpdate, user }) {
               Rescued
             </div>
           </div>
-          <div className="absolute top-4 left-4 flex flex-col gap-2">
-            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm ${SEVERITY_COLORS[report.priority] || SEVERITY_COLORS.medium}`}>
+          <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider shadow-sm ${SEVERITY_COLORS[report.priority] || SEVERITY_COLORS.medium}`}>
               {report.priority}
             </span>
           </div>
-          <div className="absolute bottom-4 left-4 flex gap-2">
-            <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm bg-white ${STATUS_CONFIG[report.status]?.color || STATUS_CONFIG.open.color}`}>
-              <StatusIcon size={14} /> {STATUS_CONFIG[report.status]?.label}
+          <div className="absolute bottom-3 left-3 flex gap-2">
+            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1 shadow-sm bg-white ${STATUS_CONFIG[report.status]?.color || STATUS_CONFIG.open.color}`}>
+              <StatusIcon size={13} /> {STATUS_CONFIG[report.status]?.label}
             </span>
           </div>
         </div>
       ) : (
-        <div className="relative h-48 w-full bg-neutral">
+        <div className="relative h-44 sm:h-52 w-full bg-neutral">
           <img
             src={getSafeImageUrl(report.image_url, undefined, 800)}
             alt={`Rescue: ${report.issue_type.replace('_', ' ')}`}
@@ -202,22 +202,22 @@ export default function RescueCard({ report, onUpdate, user }) {
             crossOrigin="anonymous"
             loading="lazy"
           />
-          <div className="absolute top-4 left-4 flex flex-col gap-2">
-            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm ${SEVERITY_COLORS[report.priority] || SEVERITY_COLORS.medium}`}>
+          <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider shadow-sm ${SEVERITY_COLORS[report.priority] || SEVERITY_COLORS.medium}`}>
               {report.priority}
             </span>
           </div>
-          <div className="absolute bottom-4 left-4 flex gap-2">
-            <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-sm bg-white ${STATUS_CONFIG[report.status]?.color || STATUS_CONFIG.open.color}`}>
-              <StatusIcon size={14} /> {STATUS_CONFIG[report.status]?.label}
+          <div className="absolute bottom-3 left-3 flex gap-2">
+            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1 shadow-sm bg-white ${STATUS_CONFIG[report.status]?.color || STATUS_CONFIG.open.color}`}>
+              <StatusIcon size={13} /> {STATUS_CONFIG[report.status]?.label}
             </span>
           </div>
         </div>
       )}
 
-      <div className="p-4 sm:p-5 flex flex-col h-[calc(100%-12rem)]">
+      <div className="p-4 sm:p-5 flex flex-col">
         <h3 className="font-bold text-base sm:text-lg text-text-dark capitalize mb-1 truncate">{report.issue_type.replace('_', ' ')}</h3>
-        <p className="text-sm text-text-light line-clamp-2 mb-3 flex-grow">{report.description}</p>
+        <p className="text-sm text-text-light line-clamp-2 mb-3">{report.description}</p>
 
         <div className="space-y-2 mb-6">
           <div className="flex items-center gap-2 text-xs text-text-light">
@@ -242,7 +242,7 @@ export default function RescueCard({ report, onUpdate, user }) {
           </div>
           <div className="flex flex-col gap-2 pt-2 border-t border-neutral/50">
             {report.status !== 'safe' && (
-              <div className="flex items-center justify-between text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
                 <div className="flex items-center gap-1.5 text-primary font-medium">
                   <Eye size={14} />
                   <span>{report.monitors?.length || 0} monitoring</span>
@@ -259,16 +259,16 @@ export default function RescueCard({ report, onUpdate, user }) {
 
             {totalResponders > 0 && (
               <div className="flex flex-wrap gap-1.5 items-center mt-1">
-                <span className="text-[10px] uppercase tracking-wider text-text-light font-bold">
+                <span className="text-[11px] uppercase tracking-wider text-text-light font-bold">
                   {report.status === 'safe' ? 'Rescued By:' : 'Crew:'}
                 </span>
                 {report.primary_responder && (
-                  <span className="inline-flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full text-[10px] font-semibold">
+                  <span className="inline-flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full text-[11px] font-semibold">
                     <Crown size={11} /> {report.primary_responder.name} (Primary)
                   </span>
                 )}
                 {report.backup_responders && report.backup_responders.map((b, idx) => (
-                  <span key={b._id || idx} className="inline-flex items-center gap-1 bg-neutral text-text-dark border border-neutral px-2 py-0.5 rounded-full text-[10px] font-medium">
+                  <span key={b._id || idx} className="inline-flex items-center gap-1 bg-neutral text-text-dark border border-neutral px-2 py-0.5 rounded-full text-[11px] font-medium">
                     <UserRoundCheck size={11} /> {b.name || 'Backup'} (Backup)
                   </span>
                 ))}
@@ -281,13 +281,23 @@ export default function RescueCard({ report, onUpdate, user }) {
               </div>
             )}
             {hasPendingTransferToMe && (
-              <div className="mt-2 text-xs bg-primary/10 border border-primary/20 p-2 rounded">
-                <p className="font-semibold text-primary mb-1">
-                  {pendingTransfer.direction === 'primary_to_backup' ? 'You have been requested to become the Primary Responder!' : 'A Backup has requested to take the Primary Responder role!'}
+              <div className="mt-2 text-xs bg-primary/10 border border-primary/20 p-3 rounded-xl">
+                <p className="font-semibold text-primary mb-2 leading-snug">
+                  {pendingTransfer.direction === 'primary_to_backup'
+                    ? 'You have been requested to become the Primary Responder!'
+                    : 'A Backup responder has requested the Primary role!'}
                 </p>
-                <div className="flex gap-2 mt-2">
-                  <button onClick={() => handleRespondToTransfer('accept')} disabled={loading} className="px-3 py-1 bg-primary text-white rounded text-xs font-bold hover:bg-primary-dark shadow-sm">Accept</button>
-                  <button onClick={() => handleRespondToTransfer('decline')} disabled={loading} className="px-3 py-1 bg-error/10 text-error rounded text-xs font-bold hover:bg-error/20">Decline</button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleRespondToTransfer('accept')}
+                    disabled={loading}
+                    className="flex-1 min-h-[40px] bg-primary text-white rounded-xl text-xs font-bold hover:bg-primary-dark active:scale-95 transition-all shadow-sm disabled:opacity-50"
+                  >Accept</button>
+                  <button
+                    onClick={() => handleRespondToTransfer('decline')}
+                    disabled={loading}
+                    className="flex-1 min-h-[40px] bg-error/10 text-error rounded-xl text-xs font-bold hover:bg-error/20 active:scale-95 transition-all disabled:opacity-50"
+                  >Decline</button>
                 </div>
               </div>
             )}
@@ -296,8 +306,8 @@ export default function RescueCard({ report, onUpdate, user }) {
           {/* Timeline UI */}
           {(report.timeline && report.timeline.length > 0) ? (
             <div className="pt-3 mt-3 border-t border-neutral/50">
-              <span className="text-[10px] uppercase tracking-wider text-text-light font-bold mb-2 block">Rescue Progress:</span>
-              <div className="max-h-40 overflow-y-auto pr-2 no-scrollbar">
+              <span className="text-[11px] uppercase tracking-wider text-text-light font-bold mb-2 block">Rescue Progress:</span>
+              <div className="max-h-32 sm:max-h-40 overflow-y-auto pr-2 no-scrollbar">
                 <Timeline events={report.timeline} />
               </div>
             </div>
@@ -324,13 +334,13 @@ export default function RescueCard({ report, onUpdate, user }) {
           )}
         </div>
 
-        <div className="flex items-center gap-2 mt-auto pt-4 border-t border-neutral">
+        <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-neutral">
           {isPrimary && report.status !== 'safe' ? (
-            <div className="flex flex-col gap-2 flex-1">
-              <div className="flex gap-2 flex-1">
+            <div className="flex flex-col gap-2 flex-1 min-w-0">
+              <div className="flex gap-2">
                 <button
                   onClick={() => window.dispatchEvent(new CustomEvent('openResolveModal', { detail: report._id }))}
-                  className="flex-1 bg-success text-white py-2 rounded-xl text-sm font-bold hover:bg-green-600 transition-colors shadow-sm flex items-center justify-center gap-2"
+                  className="flex-1 min-h-[42px] bg-success text-white py-2 px-3 rounded-xl text-sm font-bold hover:bg-green-600 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2"
                   title="Mark this rescue as safe and resolved."
                 >
                   <CheckCircle size={16} /> Mark as Safe
@@ -339,7 +349,7 @@ export default function RescueCard({ report, onUpdate, user }) {
                   <button
                     onClick={handleCancelResponse}
                     disabled={loading}
-                    className="bg-error/10 text-error hover:bg-error/20 px-3 sm:px-4 py-2 rounded-xl text-sm font-bold transition-colors shadow-sm disabled:opacity-50 shrink-0"
+                    className="min-h-[42px] bg-error/10 text-error hover:bg-error/20 active:scale-95 px-3 sm:px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm disabled:opacity-50 shrink-0"
                     title="Cancel Response (within 5 minutes)"
                   >
                     {loading ? '...' : 'Cancel'}
@@ -347,13 +357,13 @@ export default function RescueCard({ report, onUpdate, user }) {
                 )}
               </div>
               {canTransferPrimary && (
-                <div className="flex gap-2 flex-1">
+                <div className="flex flex-wrap gap-2">
                   {report.backup_responders.map((b) => (
                     <button
                       key={b._id}
                       onClick={() => handleRequestTransfer(b._id)}
                       disabled={loading}
-                      className="flex-1 border border-primary/20 text-primary py-1.5 rounded-xl text-[11px] font-bold hover:bg-primary/10 transition-colors shadow-sm"
+                      className="flex-1 min-h-[38px] border border-primary/20 text-primary py-1.5 px-3 rounded-xl text-xs font-bold hover:bg-primary/10 active:scale-95 transition-all shadow-sm"
                     >
                       Transfer to {(b.name || 'Backup').split(' ')[0]}
                     </button>
@@ -369,11 +379,11 @@ export default function RescueCard({ report, onUpdate, user }) {
               <CheckCircle size={16} /> Rescue Resolved
             </button>
           ) : isBackup ? (
-            <div className="flex flex-col gap-2 flex-1">
-              <div className="flex gap-2 flex-1">
+            <div className="flex flex-col gap-2 flex-1 min-w-0">
+              <div className="flex gap-2">
                 <button
                   disabled={true}
-                  className="flex-1 bg-[#e8f5e9] text-success border border-success/30 py-2 rounded-xl text-sm font-medium cursor-default shadow-sm font-semibold truncate"
+                  className="flex-1 min-h-[42px] bg-[#e8f5e9] text-success border border-success/30 py-2 px-3 rounded-xl text-sm font-semibold cursor-default shadow-sm truncate"
                   title="You have joined this rescue as a backup responder!"
                 >
                   Joined as Backup
@@ -382,7 +392,7 @@ export default function RescueCard({ report, onUpdate, user }) {
                   <button
                     onClick={handleCancelResponse}
                     disabled={loading}
-                    className="bg-error/10 text-error hover:bg-error/20 px-3 sm:px-4 py-2 rounded-xl text-sm font-bold transition-colors shadow-sm disabled:opacity-50 shrink-0"
+                    className="min-h-[42px] bg-error/10 text-error hover:bg-error/20 active:scale-95 px-3 sm:px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm disabled:opacity-50 shrink-0"
                     title="Cancel Response (within 5 minutes)"
                   >
                     {loading ? '...' : 'Cancel'}
@@ -393,7 +403,7 @@ export default function RescueCard({ report, onUpdate, user }) {
                 <button
                   onClick={() => handleRequestTransfer(report.primary_responder._id)}
                   disabled={loading}
-                  className="w-full border border-primary/20 text-primary py-1.5 rounded-xl text-[11px] font-bold hover:bg-primary/10 transition-colors shadow-sm"
+                  className="w-full min-h-[38px] border border-primary/20 text-primary py-1.5 rounded-xl text-xs font-bold hover:bg-primary/10 active:scale-95 transition-all shadow-sm"
                 >
                   Request Primary Role
                 </button>
@@ -411,7 +421,7 @@ export default function RescueCard({ report, onUpdate, user }) {
             <button
               onClick={handleRespond}
               disabled={loading}
-              className="flex-1 bg-primary text-white py-2 rounded-xl text-sm font-medium hover:bg-primary-hover transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex-1 min-h-[42px] bg-primary text-white py-2 px-3 rounded-xl text-sm font-semibold hover:bg-primary-hover active:scale-95 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loading ? 'Processing...' : "I'm Responding"}
             </button>
@@ -419,7 +429,7 @@ export default function RescueCard({ report, onUpdate, user }) {
             <button
               onClick={handleRespond}
               disabled={loading || report.status === 'safe'}
-              className="flex-1 bg-neutral text-text-dark py-2 rounded-xl text-sm font-medium hover:bg-neutral-dark border border-neutral transition-colors shadow-sm disabled:opacity-50"
+              className="flex-1 min-h-[42px] bg-neutral text-text-dark py-2 px-3 rounded-xl text-sm font-semibold hover:bg-neutral-dark border border-neutral active:scale-95 transition-all shadow-sm disabled:opacity-50"
             >
               {loading ? 'Joining...' : 'Join as Backup'}
             </button>
@@ -428,7 +438,7 @@ export default function RescueCard({ report, onUpdate, user }) {
           {canChat && report.status !== 'safe' && (
             <button
               onClick={() => setIsChatOpen(true)}
-              className="p-2 rounded-xl border border-primary/20 text-primary hover:bg-primary/10 transition-colors shadow-sm"
+              className="min-w-[42px] min-h-[42px] flex items-center justify-center rounded-xl border border-primary/20 text-primary hover:bg-primary/10 active:scale-95 transition-all shadow-sm"
               title="Open Rescue Chat"
               aria-label="Open Rescue Chat"
             >
@@ -439,7 +449,7 @@ export default function RescueCard({ report, onUpdate, user }) {
           {report.status !== 'safe' && (
             <button
               onClick={handleMonitor}
-              className={`p-2 rounded-xl border transition-colors ${isMonitoring ? 'bg-primary/10 border-primary/20 text-primary' : 'border-neutral text-text-light hover:bg-neutral'}`}
+              className={`min-w-[42px] min-h-[42px] flex items-center justify-center rounded-xl border active:scale-95 transition-all ${isMonitoring ? 'bg-primary/10 border-primary/20 text-primary' : 'border-neutral text-text-light hover:bg-neutral'}`}
               title="Monitor this rescue"
               aria-label="Monitor this rescue"
             >
@@ -449,8 +459,8 @@ export default function RescueCard({ report, onUpdate, user }) {
 
           <button
             onClick={handleShare}
-            className="p-2 rounded-xl border border-neutral text-text-light hover:bg-neutral transition-colors"
-            title="Generate Share Card"
+            className="min-w-[42px] min-h-[42px] flex items-center justify-center rounded-xl border border-neutral text-text-light hover:bg-neutral active:scale-95 transition-all"
+            title="Share this rescue"
             aria-label="Share this rescue"
           >
             <Share2 size={18} />

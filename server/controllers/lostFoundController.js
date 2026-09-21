@@ -138,7 +138,7 @@ exports.reuniteLostPet = async (req, res) => {
     await pet.save();
 
     if (req.user) {
-      await awardHearts({ userId: req.user._id, actionType: 'pet_reunited', points: 20, reportId: pet._id, referenceModel: 'LostPet' });
+      await awardHearts({ userId: req.user._id, actionType: 'pet_reunited', points: 10, reportId: pet._id, referenceModel: 'LostPet' });
     }
 
     res.json(pet);
